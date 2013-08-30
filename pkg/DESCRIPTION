@@ -1,0 +1,14 @@
+Package: CNAV
+Title: Copy Number and Allelic Variation
+Version: 0.1
+Date: 2013-08-30
+Author: Andreas Recke, Steffen Moeller
+Maintainer: Andreas Recke <Andreas.Recke@uksh.de>
+Description: A hidden Markov model approach is used to infer frequencies and 
+  haplotype phases of genotypes containing joint allelic and copy-number 
+  variation to be used in association studies.
+Suggests: MCMCpack
+Depends: Rcpp, RcppArmadillo
+SystemRequirements: Boost (>= 1.53)
+License: GPL-2
+ 

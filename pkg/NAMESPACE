@@ -1,0 +1,13 @@
+useDynLib(CNAV)
+
+import (MCMCpack)
+
+export ( 
+  testSkript,
+  generate_initial_parameters,
+  get_parameters,
+  duplicate_transition_matrix,
+  generate_transition_matrix,
+  transition_to_indexmatrix,
+  simulation
+)
