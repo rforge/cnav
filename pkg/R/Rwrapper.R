@@ -82,5 +82,6 @@ cnav.regression <- function(genotypes,
               seed = seed,
               PACKAGE="CNAV")
 
+  class(result) = "cnav.result"
   return(result);
 }
