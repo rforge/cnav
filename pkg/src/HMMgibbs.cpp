@@ -30,13 +30,25 @@ Gibbs_Sampling::Gibbs_Sampling(const HMMdataSet& observed_data,
 	double amount, 
 	arma::uword preparation, 
 	arma::uword max_sequence_length,  
+	arma::uword how_many_sequence_tries,
 	arma::uword rand_seed) : 
 	SequencerInstance(observed_data, HMMtransitionMatrix(init_lambda, init_transition_graph, init_emission_matrix, rand_seed, 0.5), 
-	                  rand_seed, amount, preparation, max_sequence_length)
+	                  rand_seed, amount, preparation, max_sequence_length, how_many_sequence_tries)
 {
 	std::cout << "\nGibbs start ...!\n"; std::cout.flush();
 	arma::uword nid = observed_data.n_individuals();
 	Rcpp::Rcout << "\nNumber of individuals Gibbs = " << nid << "\n";
+}
+
+
+arma::vec Gibbs_Sampling::get_temperature_probabilities()
+{
+	return SequencerInstance.get_transition_instance().get_temperature_probabilities();
+}
+	
+arma::vec Gibbs_Sampling::get_kullback_divergence()
+{
+	return SequencerInstance.get_transition_instance().get_kullback_divergence();
 }
 
 

@@ -72,4 +72,6 @@ class HMMtransitionMatrix
 	const arma::umat& get_transition_graph() const;
 	
 	void printDKL();
+	arma::vec get_temperature_probabilities();
+	arma::vec get_kullback_divergence();
 };

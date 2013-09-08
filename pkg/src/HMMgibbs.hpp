@@ -36,8 +36,12 @@ class Gibbs_Sampling
 	Gibbs_Sampling(const HMMdataSet& observed_data,	const arma::vec& init_lambda, 
 	const arma::umat& init_transition_graph, const arma::umat& init_emission_matrix,
 	double amount, arma::uword preparation, arma::uword max_sequence_length,  
-	arma::uword rand_seed);
+	arma::uword how_many_sequence_tries = 30000, 
+	arma::uword rand_seed = 42);
 	
 	arma::mat run(arma::uword burnin, arma::uword mc);
+	
+	arma::vec get_temperature_probabilities();
+	arma::vec get_kullback_divergence();
 
 };

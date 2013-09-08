@@ -9,5 +9,6 @@ export (
   duplicate_transition_matrix,
   generate_transition_matrix,
   transition_to_indexmatrix,
-  simulation
+  simulation,
+  cnav.regression
 )

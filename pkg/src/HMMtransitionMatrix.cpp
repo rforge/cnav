@@ -85,6 +85,29 @@ void HMMtransitionMatrix::printDKL()
 	Rcpp::Rcout << "\n";
 }
 
+arma::vec HMMtransitionMatrix::get_temperature_probabilities()
+{
+	using namespace arma;
+	vec result = zeros<vec>(lambda_set.n_elem);
+	
+	for (uword i = 0; i < lambda_set.n_elem-1; i++) result[i] = jump_statistics[i].mean();
+	
+	return result;
+}
+
+
+arma::vec HMMtransitionMatrix::get_kullback_divergence()
+{
+	using namespace arma;
+	vec result = zeros<vec>(lambda_set.n_elem);
+	
+	for (uword i = 0; i < lambda_set.n_elem; i++) result[i] = information_statistics[i].mean();
+	
+	return result;
+}
+
+
+
 arma::uword HMMtransitionMatrix::n_states() 
 {
 	return transition_graph.n_rows;

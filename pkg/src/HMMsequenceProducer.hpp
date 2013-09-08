@@ -93,6 +93,7 @@ class HMMsequenceProducer
 	unsigned n_threads;
 	arma::uword fraction;
 	arma::mat common_transition_matrix;
+	const arma::uword MAXCOUNT_TRIALS_FOR_SEQUENCES;
   
 	// Functions to calculate likelihood values with log mathematics
 	double logSum (double logFirst, double logSecond);
@@ -145,7 +146,7 @@ class HMMsequenceProducer
   
 public:
 	HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed, 
-	                    double i_percentage = 0.1, unsigned preparation = 100, unsigned max_sequence_length = 1000);
+	                    double i_percentage = 0.1, unsigned preparation = 100, unsigned max_sequence_length = 1000, arma::uword max_simulation_repetitions=30000);
 	
 	~HMMsequenceProducer();  // destructor
 		

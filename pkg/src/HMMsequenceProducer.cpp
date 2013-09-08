@@ -55,8 +55,9 @@
 
  
 HMMsequenceProducer::HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed,
-    double i_percentage, unsigned preparation, unsigned max_sequence_length) : 
+    double i_percentage, unsigned preparation, unsigned max_sequence_length, arma::uword max_simulation_repetitions) : 
       MAXIMUM_SEQUENCE_LENGTH(max_sequence_length), observed_data(observed), 
+      MAXCOUNT_TRIALS_FOR_SEQUENCES(max_simulation_repetitions),
       transitionData(initTransitions), percentage(i_percentage), common_rgen(rseed),
       signals(io_service, SIGINT, SIGTERM) // Construct a signal set registered for process termination.
 {
@@ -494,7 +495,7 @@ bool HMMsequenceProducer::count_down_finished()
 		
 	if (!finishedProduction) 
 	{
-		finishedProduction = !(double(fraction) < double(observed_data.n_individuals())*percentage && countDownCounter < 30000); 
+		finishedProduction = !(double(fraction) < double(observed_data.n_individuals())*percentage && countDownCounter < MAXCOUNT_TRIALS_FOR_SEQUENCES); 
 		return finishedProduction;
 	}
 	else
