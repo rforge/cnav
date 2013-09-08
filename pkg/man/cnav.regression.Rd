@@ -24,17 +24,7 @@ cnav.regression(genotypes, individuals, weights, transition_matrix, emission_mat
 \item{burnin}{ how many samples should be dropped beforehand, integer}
 \item{mc}{ number of MC samples, integer}
 \item{seed}{ a random number to make the MCMC (partly) reproducible, integer}
-
-# output:
-# temperature.indices : temperature level - for each MCMC sample
-# number.of.sequence.generation.repeats : number of resamples necessary to generate a preset amount of unbiased sequences - for each MCMC sample
-# amount.of.unbiasedly.simulated.sequences : amount of sequences which are unbiased - for each MCMC sample
-# mc.samples.transition.matrix : the random samples for the transition matrix, order is column-wise
-# mean.temperature.jumping.probabilities : the probability to jump from lower to higher temperature ... useful to determine temperature steps
-# kullback.leibler.divergences : the information amount taken up by the posterior distribution, compared to the prior distribution
-# 
-
-
+}
 \value{
 An object of class \code{cnav.result}, basically a list including elements
 \item{temperature.indices}{temperature levels trace recorded together with Gibbs sampling}
