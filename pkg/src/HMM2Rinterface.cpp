@@ -21,7 +21,7 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
     IntegerMatrix iGenotypes(genotypes);
     arma::imat ia_genotypes(iGenotypes.begin(), iGenotypes.rows(), iGenotypes.cols(), true);
     arma::umat ua_genotypes = arma::conv_to<arma::umat>::from(ia_genotypes);
-    
+
     IntegerVector iIDs(individuals);
     arma::ivec ia_ids(iIDs.begin(), iIDs.size(), true);
     arma::uvec ua_ids = arma::conv_to<arma::uvec>::from(ia_ids);
@@ -43,9 +43,9 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
     
     double a_percentage = as<double>(percentage);
     
-    NumericMatrix iTransitionMatrix(transition_matrix);
-    arma::mat na_transition(iTransitionMatrix.begin(), iTransitionMatrix.rows(), iTransitionMatrix.cols(), true);
-    arma::umat ua_graph = na_transition > 0.0;
+    IntegerMatrix iTransitionMatrix(transition_matrix);
+    arma::imat ia_graph(iTransitionMatrix.begin(), iTransitionMatrix.rows(), iTransitionMatrix.cols(), true);
+    arma::umat ua_graph = arma::conv_to<arma::umat>::from(ia_graph);
     
     IntegerMatrix iEmission(emission_matrix);
     arma::imat ia_Emission(iEmission.begin(), iEmission.rows(), iEmission.cols(), true);

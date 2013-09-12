@@ -1,7 +1,5 @@
 useDynLib(CNAV)
 
-import (MCMCpack)
-
 export ( 
   testSkript,
   generate_initial_parameters,
@@ -10,6 +8,5 @@ export (
   generate_transition_matrix,
   transition_to_indexmatrix,
   simulation,
-  cnav.regression,
-  fcgr_genotype_controls
+  cnav.regression
 )

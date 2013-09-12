@@ -43,7 +43,7 @@ cnav.regression <- function(genotypes,
   # first: some checks
 
   # genotype matrix, individuals and weights length identical
-  if (nrows(genotypes) != length(individuals) || nrows(genotypes) != length(weights)) stop("Genotype matrix does not match individuals or weights!\n");
+  if (nrow(genotypes) != length(individuals) || nrow(genotypes) != length(weights)) stop("Genotype matrix does not match individuals or weights!\n");
 
   # check temperatures
   if (any(order(temperatures, decreasing=T) != 1:length(temperatures))) {
@@ -66,20 +66,20 @@ cnav.regression <- function(genotypes,
 
   # Everythings okay? ... then start
                         
-  result = .C("HMMinterface",
-              genotypes=genotypes,
-              individuals=individuals,
-              weights=weights,
-              transition_matrix = transition_matrix,
-              emission_matrix = emission_matrix,
-              temperatures = temperatures,
-              percentage = percentage,
-              r_how_many_sequence_tries = max_unbiased_sequence_generation_repeats,
-              r_preparation = preparation,
-              r_maxsequence_length = max_sequence_length,
-              burnin = burnin,
-              mc = mc,
-              seed = seed,
+  result = .Call("HMMinterface",
+              genotypes=as.integer(genotypes),
+              individuals=as.integer(individuals),
+              weights=as.double(weights),
+              transition_matrix = as.integer(transition_matrix),
+              emission_matrix = as.integer(emission_matrix),
+              temperatures = as.double(temperatures),
+              percentage =  as.double(percentage),
+              r_how_many_sequence_tries = as.integer(max_unbiased_sequence_generation_repeats),
+              r_preparation = as.integer(preparation),
+              r_maxsequence_length = as.integer(max_sequence_length),
+              burnin = as.integer(burnin),
+              mc = as.integer(mc),
+              seed = as.integer(seed),
               PACKAGE="CNAV")
 
   class(result) = "cnav.result"
