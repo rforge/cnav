@@ -79,7 +79,7 @@ RcppExport SEXP HMMgenerate(SEXP transition_matrix, SEXP emission_matrix, SEXP c
 	}
 	
 	result = result(arma::span(0,res_count-1), arma::span::all);
-	res_counts = res_counts(arma::span(0, res_count-1));
+	res_counts = res_counts.subvec(0, res_count-1);
 	arma::vec frequencies = arma::conv_to<arma::vec>::from(res_counts);
 	frequencies = frequencies / sum(frequencies);  // MLE estimator simple an efficient	
 		
