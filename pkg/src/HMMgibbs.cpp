@@ -35,9 +35,9 @@ Gibbs_Sampling::Gibbs_Sampling(const HMMdataSet& observed_data,
 	SequencerInstance(observed_data, HMMtransitionMatrix(init_lambda, init_transition_graph, init_emission_matrix, rand_seed, 0.5), 
 	                  rand_seed, amount, preparation, max_sequence_length, how_many_sequence_tries)
 {
-	std::cout << "\nGibbs start ...!\n"; std::cout.flush();
+	Rcpp::Rcout << "\nGibbs start ...!\n"; 
 	arma::uword nid = observed_data.n_individuals();
-	Rcpp::Rcout << "\nNumber of individuals Gibbs = " << nid << "\n";
+	Rcpp::Rcout << "\nNumber of individuals = " << nid << "\n";
 }
 
 
@@ -70,13 +70,13 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 			arma::umat transition_counts;
 			double amounts;
 			arma::uword repeats = SequencerInstance.simulate_transition_counts(amounts);
-			
+
 			// Second step: simulate the transition matrix
 			SequencerInstance.get_transition_instance().random_matrix();
 			
 			// Third step: change temperature
 			SequencerInstance.get_transition_instance().random_temperature();
-			
+
 			// Now save data
 			if (burnin == 0) 
 			{

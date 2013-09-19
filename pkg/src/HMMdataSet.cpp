@@ -21,6 +21,9 @@
  * 
  */
 
+#define ARMA_DONT_USE_BLAS
+#include <RcppArmadillo.h>
+
 #include "BasicTypes.hpp"
 #include "HMMdataSet.hpp"
  
@@ -58,6 +61,11 @@ HMMdataSet::HMMdataSet(arma::umat init_genotypes,  arma::uvec init_individuals, 
 	uvec::iterator res_iter = result.begin();
 	uvec::iterator ref_iter = genotype_refs.begin();
 	
+	if (init_genotypes.n_rows == 0) {
+		Rcpp::Rcout << "No genotypes in data set\n"; Rcpp::Rcout.flush();
+		throw Rcpp::exception("No genotypes in data set","HMMdataSet.cpp",61);
+	}
+	
 	for (uword i = 0; res_iter != result.end(); res_iter++, i++, ref_iter++) if (*res_iter > 0)
 	{   
 		uvec::iterator res_iter2 = res_iter+1;
@@ -80,7 +88,7 @@ HMMdataSet::HMMdataSet(arma::umat init_genotypes,  arma::uvec init_individuals, 
 	
 	// now, the list is compressed
 	genotype_list = genotype_list(span(0, store_position-1), span::all);
-	
+		
 }
 		
 arma::uword HMMdataSet::get_ref_count()
@@ -146,7 +154,7 @@ arma::uvec HMMdataSet::random_draw(BasicTypes::base_generator_type& rand_gen)
 		// search it
 		do {
 			sum += *weights_iter;
-			found = rnum < sum;
+			found = rnum <= sum;
 		     		     
 		    if (!found) {
 				weights_iter++;
@@ -159,9 +167,7 @@ arma::uvec HMMdataSet::random_draw(BasicTypes::base_generator_type& rand_gen)
 		if (found) countlist[*ref_iter]+=1;
 		
 		if (!found) {
-			std::cout << "Alarm!\n" << "Summe = " << sum << " rnum = " << rnum << " Individual = " << current_id << "\n";
-			std::cout.flush();
-			// id_weights.print("Weights=");
+		   throw Rcpp::exception("Sum of weights does not equal 1","HMMdataSet.cpp",167);
 		}
 	
 	    // and seach until the next individual or end

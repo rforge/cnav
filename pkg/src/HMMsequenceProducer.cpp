@@ -136,6 +136,7 @@ arma::uword HMMsequenceProducer::simulate_transition_counts(double& approx_amoun
 	finishedProduction = false;
 	countDownCounter = 0;  // restart generator
 	fraction = 0;
+	
 	// Restart production
 	countDownCondition.notify_all();  // wake up threads
 	countDownCondition.wait(countDownLock);  // release lock
@@ -289,7 +290,6 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
 	
 	uword j = 0, state = 0;
 	bool ran_twice = false;
-	
 	while (state != transitionData.get_endstate() && j < MAXIMUM_SEQUENCE_LENGTH) 
 	{
 		// calculate new state
@@ -307,7 +307,6 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
 	    j++;
 	    sequence[j] = state;
 	}
-	
     urowvec shortened_sequence(j);
     std::copy(sequence.begin(), sequence.begin()+j, shortened_sequence.begin());
 	
@@ -316,7 +315,6 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
 	BasicTypes::SequenceReferenceTuple result(shortened_sequence,refGenotype,transitSave,validity);
 	
 	if (validity) observed_data.get_ref(result, sim_genotype);
-	
 	return result;
 }	
 
@@ -491,6 +489,7 @@ void HMMsequenceProducer::count_down_realizations(const BasicTypes::SequenceRefe
 
 bool HMMsequenceProducer::count_down_finished()
 {
+		
 	boost::unique_lock<boost::mutex> real_lock(simulationMutex);  // lock Mutex
 		
 	if (!finishedProduction) 

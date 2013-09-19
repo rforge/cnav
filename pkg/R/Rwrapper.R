@@ -41,6 +41,7 @@ cnav.regression <- function(genotypes,
                             seed = 42)
 {
   # first: some checks
+  if (nrow(genotypes) == 0) stop("No genotype data!\n")
 
   # genotype matrix, individuals and weights length identical
   if (nrow(genotypes) != length(individuals) || nrow(genotypes) != length(weights)) stop("Genotype matrix does not match individuals or weights!\n");
@@ -63,6 +64,20 @@ cnav.regression <- function(genotypes,
 
   # check other settings
   if (any(c(burnin, mc, preparation, max_sequence_length, seed, max_unbiased_sequence_generation_repeats) <= 0)) stop("Please correct control settings!\n");
+
+  # correct order of individuals
+  neworder <- order(individuals)
+  individuals = individuals[neworder]
+  weights = weights[neworder]
+  genotypes = genotypes[neworder,]
+  # correct sums of weights
+  for (ina in unique(individuals)) {
+    if (sum(individuals == ina) == 1) {
+      weights[ina == individuals] = 1
+    } else {
+      weights[ina==individuals][1] = 1 - sum(weights[ina==individuals][-1])
+    }
+  }
 
   # Everythings okay? ... then start
                         

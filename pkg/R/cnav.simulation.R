@@ -20,7 +20,7 @@ cnav.simulation = function(target = c("haplotypes","diplotypes", "half", "full",
                            transition_matrix,
                            emission_matrix,
                            n_sim,
-                           random_seed = trunc(random(1, min=0, max = 1e6)),
+                           random_seed = trunc(runif(1, min=0, max = 1e6)),
                            max_seq_len = 1000)
 {
   target = match.arg(target)
