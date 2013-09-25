@@ -32,9 +32,14 @@ cnav.simulation = function(target = c("haplotypes","diplotypes", "half", "full",
   {
     result = .Call("HMMgenerateHaplotype", transition_matrix=transition_matrix, emission_matrix = emission_matrix, count=n_sim,
                                            random_seed = random_seed, max_seq_len = max_seq_len, PACKAGE="CNAV")
+                                           
+    class(result) = "cnav.sim.result.haplotypes";                                           
   } else {
     result = .Call("HMMgenerateDiplotype", transition_matrix=transition_matrix, emission_matrix = emission_matrix, count=n_sim,
                                            random_seed = random_seed, max_seq_len = max_seq_len, PACKAGE="CNAV")
+    class(result) = "cnav.sim.result.diplotypes";                                           
   }
+  
+  
   return(result);
 }

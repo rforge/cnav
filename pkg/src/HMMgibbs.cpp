@@ -137,5 +137,5 @@ double Gibbs_Sampling::get_Chib_marginal_likelihood(const arma::rowvec& transiti
 
 arma::vec Gibbs_Sampling::get_naive_marginal_likelihood(arma::uword n_samp)
 {
-	SequencerInstance.get_naive_marginal_likelihood(n_samp);
+	return SequencerInstance.get_naive_marginal_likelihood(n_samp);
 }

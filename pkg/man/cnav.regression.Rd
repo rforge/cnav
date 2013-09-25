@@ -33,9 +33,68 @@ An object of class \code{cnav.result}, basically a list including elements
 \item{mc.samples.transition.matrix}{Gibbs output. The random samples for the transition matrix, order is column-wise.}
 \item{mean.temperature.jumping.probabilities}{the probability to jump from lower to higher temperature for each temperature index ... useful to determine temperature steps}
 \item{kullback.leibler.divergences}{the information amount taken up by the posterior distribution, compared to the prior distribution.}
+\item{chib.marginal.likelihoods}{estimator for the log marginal likelihood of the model, calculated after the Chib method.}
+\item{naive.dirichlet.marginal.likelihoods}{log marginal likelihood when a conjugate Dirichlet prior is used for naive estimation of genotype frequencies. For
+comparison with the marginal likelihood of the HMM model.}
 }
 \author{Andreas Recke}
 \examples{
-  cat("This will be an example!\n")
+
+# load library
+library(CNAV)
+
+# Activate data
+data(fcgr_genotype_controls)
+
+# Extract data of FCGR3B
+newdata = aggregate(Probability ~ ID + FCGR3B.Na1 + FCGR3B.Na2 + FCGR3B.SH, data=fcgr_genotype_controls, FUN=sum)
+newdata$Probability = newdata$Probability / with(newdata, tapply(Probability, ID, sum)[ID])
+newdata$Probability = sapply(1:nrow(newdata), function(i) 1-sum(newdata$Probability[setdiff(which(newdata$ID == newdata$ID[i]),i)]))
+
+# build transition matrix
+transitions = matrix(c(
+          #   S  2  Na1  Na2  SH  3  E
+             0,  1,  0,  0,   0,  0,  1,
+             0,  0,  1,  1,   1,  0,  0,
+             0,  0,  0,  0,   0,  1,  0,
+             0,  0,  0,  0,   0,  1,  0,
+             0,  0,  0,  0,   0,  1,  0,
+             0,  1,  0,  0,   0,  0,  1,
+             0,  0,  0,  0,   0,  0,  0), nrow=7, byrow=T)
+
+# build emission matrix
+emissions = matrix(c(
+          #  Na1  Na2  SH
+             0,  0,  0,
+             0,  0,  0,
+             1,  0,  0,
+             0,  1,  0,
+             0,  0,  1,
+             0,  0,  0,
+             0,  0,  0 ), nrow=7, byrow=T)
+
+colnames(emissions) = c("FCGR3B.Na1", "FCGR3B.Na2", "FCGR3B.SH")
+
+temperaturen <- seq(1,0,len=5)^4
+
+result <- cnav.regression( genotypes= as.matrix(newdata[,colnames(emissions)]),
+			      individuals = newdata$ID,
+			      weights=newdata$Probability,
+			      transition_matrix=transitions,
+			      emission_matrix=emissions,
+			      temperatures = temperaturen,
+			      burnin = 10, mc = 300, percentage = 1.0,
+			      preparation = 100, max_unbiased_sequence_generation_repeats = 30000,
+			      max_sequence_length = 1000, seed = trunc(runif(1,min=0,max=1e5)))
+
+# print estimator for the transition matrix
+print(matrix(colMeans(result$mc.samples.transition.matrix[result$temperature.indices == 0,]),ncol=ncol(transitions)))
+
+# print log marginal likelihood
+print(median(result$chib.marginal.likelihoods)))
+
+# compare naive log marginal likelihood
+print(median(result$naive.dirichlet.marginal.likelihoods)))
+
 }
 \keyword{Markov model} 
