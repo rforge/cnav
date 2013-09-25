@@ -19,7 +19,6 @@
  * MA 02110-1301, USA.
  */
 
-
 #include "HMMgibbs.hpp"
 
 	
@@ -33,7 +32,8 @@ Gibbs_Sampling::Gibbs_Sampling(const HMMdataSet& observed_data,
 	arma::uword how_many_sequence_tries,
 	arma::uword rand_seed) : 
 	SequencerInstance(observed_data, HMMtransitionMatrix(init_lambda, init_transition_graph, init_emission_matrix, rand_seed, 0.5), 
-	                  rand_seed, amount, preparation, max_sequence_length, how_many_sequence_tries)
+	                  rand_seed, amount, preparation, max_sequence_length, how_many_sequence_tries),
+	chib_ML_estimation(rand_seed)
 {
 	Rcpp::Rcout << "\nGibbs start ...!\n"; 
 	arma::uword nid = observed_data.n_individuals();
@@ -95,6 +95,12 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 				    if (counter % (mc/100) == 0)  Rcpp::Rcout <<  "-"; Rcpp::Rcout.flush(); 
 				}
 		    }
+		    
+		    if (SequencerInstance.get_transition_instance().get_temperature() == 0) 
+		    {
+				chib_ML_estimation.save_transition_counts(SequencerInstance);
+			}
+		    
 		} catch (std::runtime_error& ex)
 		{
 			if (!SequencerInstance.system_interrupted()) 
@@ -111,4 +117,25 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 	if (has_been_interrupted) Rcpp::Rcout << "\nSampling interrupted!\n";
 	
 	return samples;	
+}
+
+
+double Gibbs_Sampling::get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample)
+{
+	using namespace arma;
+	
+	uword n_states = SequencerInstance.get_transition_instance().get_endstate() + 1;
+	
+	mat transmatrix(n_states,n_states);
+	mat::iterator miter = transmatrix.begin();
+	rowvec::const_iterator viter = transition_matrix_sample.begin();
+	for (;miter != transmatrix.end(); miter++, viter++) *miter = *viter;
+	
+	return chib_ML_estimation.calculate_marginal_likelihood(SequencerInstance, transmatrix);
+}
+
+
+arma::vec Gibbs_Sampling::get_naive_marginal_likelihood(arma::uword n_samp)
+{
+	SequencerInstance.get_naive_marginal_likelihood(n_samp);
 }

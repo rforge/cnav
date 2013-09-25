@@ -114,9 +114,7 @@ class HMMsequenceProducer
 	// *** generates a number of solutions			
 	void construct_genotype(arma::uword refGenotype, arma::uword how_many, BasicTypes::base_generator_type& rgen);
         
-    // Function to simulate a sequence based upon a given transition matrix
-    BasicTypes::SequenceReferenceTuple produce_random_sequence(const arma::mat& transition_matrix, BasicTypes::base_generator_type& rand_gen);
-    
+  
     // Storage functions
     double hashValue(const arma::urowvec& sequence);
     void push_realization(const BasicTypes::SequenceReferenceTuple& realization_element);
@@ -150,12 +148,18 @@ public:
 	
 	~HMMsequenceProducer();  // destructor
 		
+	// Function to simulate a sequence based upon a given transition matrix
+    BasicTypes::SequenceReferenceTuple produce_random_sequence(const arma::mat& transition_matrix, BasicTypes::base_generator_type& rand_gen);
+    		
 	arma::uword simulate_transition_counts(double& approx_amount); // parallel simulation!
 	// returns the fraction of data that needed to be approximated
 	
 	void print_realizations_count();
 	
     HMMtransitionMatrix& get_transition_instance();
+    HMMdataSet& get_observations_instance();
+    
+    arma::vec get_naive_marginal_likelihood(arma::uword n_samp);
     
     bool system_interrupted();
 

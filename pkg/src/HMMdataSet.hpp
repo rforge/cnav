@@ -49,4 +49,8 @@ public:
     void get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowvec genotype);
     
     arma::uword n_individuals() const;
+    
+    double calculate_likelihood(const arma::vec& probabilities);
+    
+    arma::vec naive_marginal_likelihood(arma::uword Nsamp, BasicTypes::base_generator_type& rand_gen);
 };

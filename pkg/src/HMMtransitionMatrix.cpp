@@ -139,6 +139,22 @@ double HMMtransitionMatrix::likelihood(double r_temp)
 	return logsumme;
 }
 
+
+double HMMtransitionMatrix::transition_matrix_density(const arma::mat& c_transition_matrix, const arma::mat& c_count_matrix) 
+{
+	double logsumme = 0;
+	
+	for (arma::uword i=0; i < c_transition_matrix.n_rows - 1; i++) 
+	{
+		arma::rowvec prior_row = ( arma::conv_to<arma::mat>::from(transition_graph) )(i, arma::span::all);
+		logsumme += log_dirichlet_density(c_transition_matrix(i, arma::span::all), prior_row + c_count_matrix(i, arma::span::all));
+	}
+	
+	return logsumme;
+	
+}
+
+
 void HMMtransitionMatrix::set_transition_counts(const arma::umat& new_transition_counts)
 {
 	transition_counts = new_transition_counts;
@@ -147,6 +163,11 @@ void HMMtransitionMatrix::set_transition_counts(const arma::umat& new_transition
 const arma::umat& HMMtransitionMatrix::get_transition_graph() const
 {
 	return transition_graph;
+}
+
+const arma::umat& HMMtransitionMatrix::get_transition_counts() const
+{
+	return transition_counts;
 }
 	
 const arma::umat& HMMtransitionMatrix::get_emission_matrix() const

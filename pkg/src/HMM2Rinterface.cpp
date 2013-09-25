@@ -61,12 +61,29 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
 	arma::vec amount_of_unbiasedly_simulated_sequences = runResult(arma::span::all,1);
 	arma::mat mc_samples_transition_matrix = runResult(arma::span::all, arma::span(3,runResult.n_cols-1));
 	
+	// just calculate some marginal likelihoods
+	arma::vec marlik = arma::zeros<arma::vec>(50);
+	arma::uvec indexlist = arma::shuffle(arma::linspace<arma::uvec>(0,imc-1,imc));
+	arma::uword i = 0, j = 0;
+	bool finito = false;
+	while (!finito) 
+	{
+		while (i < imc && res_temperature_indices[i] != 0) i++;
+		if (i < imc) marlik[j] = Runner.get_Chib_marginal_likelihood(mc_samples_transition_matrix(i, arma::span::all));
+		i++; j++;
+		finito = i >= imc || j >= 50;
+	}
+	
+	arma::vec naiveMarlik = Runner.get_naive_marginal_likelihood(50);
+	
 	List HMMresult = List::create( _("temperature.indices") = wrap(res_temperature_indices),
 	                               _("number.of.sequence.generation.repeats") = wrap(number_of_sequence_generation_repeats),
 	                               _("amount.of.unbiasedly.simulated.sequences") = wrap(amount_of_unbiasedly_simulated_sequences ),
 	                               _("mc.samples.transition.matrix") = wrap(mc_samples_transition_matrix),
 	                               _("mean.temperature.jumping.probabilities") = wrap(Runner.get_temperature_probabilities()),
-	                               _("kullback.leibler.divergences") = wrap(Runner.get_kullback_divergence()) );
+	                               _("kullback.leibler.divergences") = wrap(Runner.get_kullback_divergence()),
+	                               _("chib.marginal.likelihoods") = wrap(marlik),
+	                               _("naive.dirichlet.marginal.likelihoods") = wrap(naiveMarlik) );
 	                            
 	
 	return HMMresult;

@@ -118,9 +118,10 @@ HMMsequenceProducer::~HMMsequenceProducer()
 void HMMsequenceProducer::interrupt_handler(const boost::system::error_code& error, int signal_number)
 {
 	if (error) {
-		Rcpp::Rcout << "Interrupt catched\n";
+		
 		if (signal_number == SIGINT || signal_number == SIGTERM) interrupted = true;
 	}	
+	
 }
 
 
@@ -540,8 +541,21 @@ HMMtransitionMatrix& HMMsequenceProducer::get_transition_instance()
 
 //*******
 
+HMMdataSet& HMMsequenceProducer::get_observations_instance()
+{
+	return observed_data;
+}
+
+//*******
+
 bool HMMsequenceProducer::system_interrupted()
 {
 	return interrupted;
 }
 
+//***
+
+arma::vec HMMsequenceProducer::get_naive_marginal_likelihood(arma::uword n_samp)
+{
+	return observed_data.naive_marginal_likelihood(n_samp, common_rgen);
+}

@@ -26,10 +26,12 @@
 #include "HMMdataSet.hpp"
 #include "HMMsequenceProducer.hpp"
 #include "HMMtransitionMatrix.hpp"
+#include "HMMchib.hpp"
 
 class Gibbs_Sampling
 {
 	HMMsequenceProducer SequencerInstance;
+	HMMchib chib_ML_estimation;
 	
 	public:
 	
@@ -43,5 +45,9 @@ class Gibbs_Sampling
 	
 	arma::vec get_temperature_probabilities();
 	arma::vec get_kullback_divergence();
+	
+	double get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample);
+	
+	arma::vec get_naive_marginal_likelihood(arma::uword n_samp);
 
 };

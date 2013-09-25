@@ -186,3 +186,63 @@ arma::uword HMMdataSet::n_individuals() const
 {
 	return number_of_individuals;
 }	
+
+
+/*
+ * 
+ * name: calculate_likelihood
+ * @param: const arma::vec& probabilities - probability for each genotype in the reference list
+ * @return: accumulated log-likelihood
+ * 
+ */
+double HMMdataSet::calculate_likelihood(const arma::vec& probabilities)
+{
+	using namespace arma;
+	uvec::const_iterator id_iter = individuals.begin();
+	uword start_id = *id_iter;
+		
+	vec::const_iterator weights_iter = id_weights.begin();
+	uvec::const_iterator ref_iter = genotype_refs.begin();	
+	
+	double likelihood_result = 0;
+	
+	while (id_iter != individuals.end()) 
+	{
+		double partial_sum = 0;
+		uword current_id = *id_iter;
+	
+	    // Accumulation algorithm makes use of a specialized internal loop
+		while (id_iter != individuals.end() & *id_iter == current_id) 
+		{
+			partial_sum += probabilities[*ref_iter] * (*weights_iter);
+			id_iter++;
+			weights_iter++;
+			ref_iter++;
+		}
+		
+        likelihood_result += log(partial_sum);
+	}
+	
+	return likelihood_result;
+}
+
+arma::vec HMMdataSet::naive_marginal_likelihood(arma::uword Nsamp, BasicTypes::base_generator_type& rand_gen)
+{
+	using namespace arma;
+	
+	vec result(Nsamp);
+	
+	for (uword i = 0; i < Nsamp; i++) {
+		vec alpha = 0.5 + conv_to<vec>::from(random_draw(rand_gen));
+				
+		double summe = 0.0;
+		vec::const_iterator iter = alpha.begin();
+		for (uword j = 0; iter != alpha.end(); iter++) summe += boost::math::lgamma(*iter);
+		summe -= boost::math::lgamma(arma::accu(alpha));
+		
+		result[i] = summe;
+	}
+	
+	return result;
+			
+}
