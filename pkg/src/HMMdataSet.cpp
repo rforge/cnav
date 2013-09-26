@@ -238,6 +238,9 @@ arma::vec HMMdataSet::naive_marginal_likelihood(arma::uword Nsamp, BasicTypes::b
 		vec::const_iterator iter = alpha.begin();
 		for (uword j = 0; iter != alpha.end(); iter++) summe += boost::math::lgamma(*iter);
 		summe -= boost::math::lgamma(arma::accu(alpha));
+		// substract the rest
+		summe += boost::math::lgamma(0.5*double(alpha.n_elem));
+		summe -= double(alpha.n_elem) * boost::math::lgamma(0.5);
 		result[i] = summe;
 	}
 	return result;

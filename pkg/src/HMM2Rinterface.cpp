@@ -74,7 +74,7 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
 		finito = i >= imc || j >= 50;
 	}
 	
-	arma::vec naiveMarlik = Runner.get_naive_marginal_likelihood(50);
+	arma::vec naiveMarlik = Runner.get_naive_marginal_likelihood(1000);
 	
 	List HMMresult = List::create( _("temperature.indices") = wrap(res_temperature_indices),
 	                               _("number.of.sequence.generation.repeats") = wrap(number_of_sequence_generation_repeats),
