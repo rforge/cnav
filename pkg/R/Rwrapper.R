@@ -34,6 +34,9 @@ cnav.regression <- function(genotypes,
                             temperatures,
                             burnin = 100,
                             mc = 1000,
+			    exact = FALSE,
+			    collect = FALSE,
+			    betterSamplingOrder = TRUE,
 			    percentage = 0.95,
 			    preparation = 100,
                             max_unbiased_sequence_generation_repeats = 30000,
@@ -63,7 +66,7 @@ cnav.regression <- function(genotypes,
   if (ncol(emission_matrix) != ncol(genotypes)) stop("Emission matrix does not match genotypes!\n")
 
   # check other settings
-  if (any(c(burnin, mc, preparation, max_sequence_length, seed, max_unbiased_sequence_generation_repeats) <= 0)) stop("Please correct control settings!\n");
+  if (burnin < 0 || any(c(mc, preparation, max_sequence_length, seed, max_unbiased_sequence_generation_repeats) <= 0)) stop("Please correct control settings!\n");
 
   # correct order of individuals
   neworder <- order(individuals)
@@ -92,6 +95,9 @@ cnav.regression <- function(genotypes,
               r_how_many_sequence_tries = as.integer(max_unbiased_sequence_generation_repeats),
               r_preparation = as.integer(preparation),
               r_maxsequence_length = as.integer(max_sequence_length),
+	      exact = as.logical(exact),
+	      collect = as.logical(collect),
+	      betterSamplingOrder = as.logical(betterSamplingOrder),
               burnin = as.integer(burnin),
               mc = as.integer(mc),
               seed = as.integer(seed),

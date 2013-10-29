@@ -54,7 +54,7 @@
 #include "HMMtransitionMatrix.hpp"
 
  
-HMMsequenceProducer::HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed,
+HMMsequenceProducer::HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed, bool exact, bool collect,
     double i_percentage, unsigned preparation, unsigned max_sequence_length, arma::uword max_simulation_repetitions) : 
       MAXIMUM_SEQUENCE_LENGTH(max_sequence_length), observed_data(observed), 
       MAXCOUNT_TRIALS_FOR_SEQUENCES(max_simulation_repetitions),
@@ -65,6 +65,8 @@ HMMsequenceProducer::HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatri
 	finishedProduction = true;
 	
 	interrupted = false;
+	
+	allow_collect = !exact && collect; // if exact, collection does not make sense
 	
 	// Start an asynchronous wait for one of the signals to occur.
     signals.async_wait(boost::bind(&HMMsequenceProducer::interrupt_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::signal_number));
@@ -89,9 +91,16 @@ HMMsequenceProducer::HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatri
 	
 	// prepare the list of sequences for genotypes, try "preparation" times 
 	try {
-		for (arma::uword i = 0; i < observed_data.get_ref_count(); i++)
-	    {
-		  construct_genotype(i, preparation, common_rgen);	
+		if (exact) 
+		{
+			construct_exact_sequences();
+		} 
+		else 
+		{
+			for (arma::uword i = 0; i < observed_data.get_ref_count(); i++)
+		    {
+			  construct_genotype(i, preparation, common_rgen);	
+		    }
 	    }
     } catch(Rcpp::exception& ex)
     {
@@ -166,14 +175,14 @@ double HMMsequenceProducer::logSequenceProbability (const arma::umat& sequenceTr
 	mat::const_iterator  transIter = transition_matrix.begin();
 	for (;seqIter != sequenceTransits.end(); seqIter++, transIter++) 
 	  if (*transIter > 0.0) summe += log(*transIter) * (*seqIter);
+	
 	return summe;
 }
 
 // for calculation of the likelihood
 double HMMsequenceProducer::logSum (double logFirst, double logSecond)
 {
-	double bigger;
-	if (logFirst > logSecond) bigger = logFirst-30; else bigger = logSecond-30;
+	double bigger = (logFirst>logSecond)?logFirst:logSecond;
 	return log(exp(logFirst-bigger) + exp(logSecond-bigger)) + bigger;
 }
 
@@ -181,8 +190,7 @@ double HMMsequenceProducer::logSum (double logFirst, double logSecond)
 arma::vec HMMsequenceProducer::log_to_linear_probs (const arma::vec& log_probs)
 {
 	using namespace arma;
-	vec re_log_probs = exp(log_probs - log_probs.max() + 20.0);  // reverse log to linear, take care of numeric limits
-	// adding 50 should allow optimal representation to all values
+	vec re_log_probs = exp(log_probs - log_probs.max());  // reverse log to linear, take care of numeric limits
 	re_log_probs = re_log_probs / accu(re_log_probs);
 	return re_log_probs;
 }	
@@ -195,6 +203,8 @@ void HMMsequenceProducer::add_approximation(arma::uword ref, arma::uword counts)
 	
 	arma::vec probs(genotype_realizations_count[ref]);
 	arma::uvec indices(genotype_realizations_count[ref]);
+	
+	multimap_type::const_iterator tester;
 		
 	arma::uword xcount = 0;
 		
@@ -204,6 +214,7 @@ void HMMsequenceProducer::add_approximation(arma::uword ref, arma::uword counts)
 		if (interrupted) throw( std::runtime_error("Interrupted ...") );
 		probs[xcount] = logSequenceProbability(iter->second.get<2>(), transitionData.get_transition_matrix());
 		indices[xcount] = poscount;
+		if (xcount==3) tester=iter;
 		xcount++;
 	}
 	
@@ -275,7 +286,7 @@ double HMMsequenceProducer::hashValue(const arma::urowvec& sequence)
  */
  
 BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
-  const arma::mat& transition_matrix, 
+  const arma::mat& my_transition_matrix, 
   BasicTypes::base_generator_type& rand_gen
 )
 {
@@ -285,7 +296,7 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
 	sequence[0] = 0;
 	
 	urowvec sim_genotype = zeros<urowvec>(transitionData.get_emission_matrix().n_cols);
-	umat transitSave = zeros<umat>(transition_matrix.n_rows, transition_matrix.n_cols);
+	umat transitSave = zeros<umat>(my_transition_matrix.n_rows, my_transition_matrix.n_cols);
 	uword refGenotype = 0;
 	bool validity = false;
 	
@@ -294,7 +305,7 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
 	while (state != transitionData.get_endstate() && j < MAXIMUM_SEQUENCE_LENGTH) 
 	{
 		// calculate new state
-		uword newstate = select_state(transition_matrix(state, span::all),rand_gen);
+		uword newstate = select_state(my_transition_matrix(state, span::all),rand_gen);
 		transitSave(state, newstate) = transitSave(state, newstate) + 1;
 	    state = newstate;
 		// add emission to resulting genotype
@@ -312,10 +323,9 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
     std::copy(sequence.begin(), sequence.begin()+j, shortened_sequence.begin());
 	
 	validity = j < MAXIMUM_SEQUENCE_LENGTH;
-		
-	BasicTypes::SequenceReferenceTuple result(shortened_sequence,refGenotype,transitSave,validity);
+	BasicTypes::SequenceReferenceTuple result(sequence,refGenotype,transitSave,validity);
+    if (validity) observed_data.get_ref(result, sim_genotype);
 	
-	if (validity) observed_data.get_ref(result, sim_genotype);
 	return result;
 }	
 
@@ -420,6 +430,89 @@ BasicTypes::SequenceReferenceTuple HMMsequenceProducer::produce_random_sequence(
 	}	          
 
 
+/* ****************************************************************************************************************
+ * 
+ * name: exact_recursive_search_genotype
+ * 
+ * This function generates all possible sequences for a given genotype
+ * 
+ * @param: ref = the genotype to be determined
+ * 
+ * @return: void. Results are stored in the realization list of this class
+ * 
+ */
+
+void HMMsequenceProducer::exact_recursive_search_genotype(const arma::uword ref,
+                                                        arma::uword depth, arma::uword state, bool ran_twice, 
+                                                        arma::urowvec& simGenotype, arma::urowvec& simSequence,
+                                                        arma::umat& transition_counter)
+{
+	
+	if (interrupted) return;  // just to be sure it can be stopped
+	
+	if (state == transitionData.get_endstate() && ran_twice && arma::accu(simGenotype != observed_data.get_genotype(ref)) == 0) 
+	{
+		// If everything is all right ... store that thing
+		
+		arma::urowvec shortened_sequence(depth);
+		std::copy(simSequence.begin(), simSequence.begin()+depth, shortened_sequence.begin() );
+	
+		BasicTypes::SequenceReferenceTuple result(shortened_sequence, ref, transition_counter, true);	
+		push_realization(result);
+     }
+	
+	if (depth < MAXIMUM_SEQUENCE_LENGTH && arma::accu(simGenotype > observed_data.get_genotype(ref)) == 0) 
+	{
+		// if the path is not complete ... go further
+		
+		if (state == transitionData.get_endstate() && !ran_twice) 
+		{
+			simSequence[depth] = 0;
+			simGenotype = simGenotype + transitionData.get_emission_matrix()(0,arma::span::all);
+			exact_recursive_search_genotype(ref, depth+1, 0, true, simGenotype, simSequence, transition_counter);
+			simGenotype = simGenotype - transitionData.get_emission_matrix()(0,arma::span::all);
+		}
+		else for (arma::uword newstate=0; newstate < transitionData.get_transition_graph().n_cols; newstate++)
+		{
+			if (transitionData.get_transition_graph()(state,newstate) > 0)
+			{
+				simSequence[depth] = newstate;
+				
+				simGenotype = simGenotype + transitionData.get_emission_matrix()(newstate,arma::span::all);
+				transition_counter(state,newstate) = transition_counter(state,newstate) + 1;
+				
+				exact_recursive_search_genotype(ref, depth+1, newstate, ran_twice, simGenotype, simSequence, transition_counter);
+				
+				simGenotype = simGenotype - transitionData.get_emission_matrix()(newstate,arma::span::all);
+				transition_counter(state,newstate) = transition_counter(state,newstate) - 1;
+			}
+		}
+	}	
+}
+
+
+// this is just a wrapper for the above function
+
+void HMMsequenceProducer::construct_exact_sequences()
+{
+	Rcpp::Rcout << "\nGenerating exact data set\n> "; Rcpp::Rcout.flush();
+	using namespace arma;
+	for (arma::uword i = 0; i < observed_data.get_ref_count(); i++)
+	{
+		urowvec simGenotype = zeros<urowvec>(transitionData.get_emission_matrix().n_cols);
+	    urowvec simSequence = zeros<urowvec>(MAXIMUM_SEQUENCE_LENGTH);
+	    umat transition_counter = zeros<umat>(transitionData.n_states(), transitionData.n_states());
+		
+		for (arma::uword j = 0; j < observed_data.get_genotype(i).n_elem; j++) Rcpp::Rcout << observed_data.get_genotype(i)[j] << " "; 
+		Rcpp::Rcout.flush();
+		
+		exact_recursive_search_genotype(i, 0, 0, false, simGenotype, simSequence, transition_counter);
+		Rcpp::Rcout << ".\n> "; Rcpp::Rcout.flush();
+	}
+		Rcpp::Rcout << "< Finished!\n\n>"; Rcpp::Rcout.flush();
+}
+
+
 
 /* ****************************************************************************************************************
  * 
@@ -454,6 +547,7 @@ void HMMsequenceProducer::push_realization(const BasicTypes::SequenceReferenceTu
 			genotype_realizations_count[realization_element.get<1>()] += 1;
 		}
 	}
+	
 }
 
 
@@ -481,7 +575,7 @@ void HMMsequenceProducer::count_down_realizations(const BasicTypes::SequenceRefe
 			fraction++;
 			countDownList[ref.get<1>()] --;   // count down
 			transition_counts = transition_counts + ref.get<2>();  // count up
-			// push_realization(ref); // remove this, because it causes skewing!
+			if (allow_collect) push_realization(ref); // remove this, because it causes skewing!
 		}
 	}		 
 }
@@ -558,4 +652,12 @@ bool HMMsequenceProducer::system_interrupted()
 arma::vec HMMsequenceProducer::get_naive_marginal_likelihood(arma::uword n_samp)
 {
 	return observed_data.naive_marginal_likelihood(n_samp, common_rgen);
+}
+
+
+//***
+
+arma::uword HMMsequenceProducer::get_number_of_prepared_realizations()
+{
+	return realizations.size();
 }

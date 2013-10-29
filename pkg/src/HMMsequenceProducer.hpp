@@ -75,6 +75,7 @@ class HMMsequenceProducer
     HMMdataSet observed_data;
     
     double percentage;				 // number of sequences that is simulate randomly
+    bool allow_collect;
     
     typedef boost::container::flat_multimap<double, BasicTypes::SequenceReferenceTuple> multimap_type;
     multimap_type realizations;  
@@ -114,6 +115,13 @@ class HMMsequenceProducer
 	// *** generates a number of solutions			
 	void construct_genotype(arma::uword refGenotype, arma::uword how_many, BasicTypes::base_generator_type& rgen);
         
+    // *** this generates a number of exact solutions ... for unbiased sampling
+    void construct_exact_sequences();
+    void exact_recursive_search_genotype(const arma::uword ref,
+                                          arma::uword depth, arma::uword state, bool ran_twice, 
+                                          arma::urowvec& simGenotype, arma::urowvec& simSequence,
+                                          arma::umat& transition_counter);
+
   
     // Storage functions
     double hashValue(const arma::urowvec& sequence);
@@ -143,7 +151,7 @@ class HMMsequenceProducer
         
   
 public:
-	HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed, 
+	HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed, bool exact, bool collect,
 	                    double i_percentage = 0.1, unsigned preparation = 100, unsigned max_sequence_length = 1000, arma::uword max_simulation_repetitions=30000);
 	
 	~HMMsequenceProducer();  // destructor
@@ -160,6 +168,8 @@ public:
     HMMdataSet& get_observations_instance();
     
     arma::vec get_naive_marginal_likelihood(arma::uword n_samp);
+    
+    arma::uword get_number_of_prepared_realizations();
     
     bool system_interrupted();
 

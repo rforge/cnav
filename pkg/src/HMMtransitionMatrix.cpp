@@ -30,7 +30,8 @@
 #include "BasicTypes.hpp"
 #include "HMMtransitionMatrix.hpp"
 	
-HMMtransitionMatrix::HMMtransitionMatrix(arma::vec init_lambda, const arma::umat& init_transition_graph, const arma::umat& init_emission_matrix, arma::uword rand_seed, double i_prior) :
+HMMtransitionMatrix::HMMtransitionMatrix(arma::vec init_lambda, const arma::umat& init_transition_graph, const arma::umat& init_emission_matrix, 
+  arma::uword rand_seed, double i_prior) :
   rng_engine(rand_seed),
   lambda_set(init_lambda),
   transition_graph(init_transition_graph),
@@ -44,7 +45,7 @@ HMMtransitionMatrix::HMMtransitionMatrix(arma::vec init_lambda, const arma::umat
 	for (unsigned i=0; i < lambda_set.n_elem-1; i++) jump_statistics[i].reset();
 	
 	endstate = init_transition_graph.n_rows - 1;
-	temperature = 0;
+	temperature = lambda_set.n_elem - 1;
 	transition_counts = arma::zeros<arma::umat>(init_transition_graph.n_rows, init_transition_graph.n_cols);
 	random_matrix();
 }
@@ -66,7 +67,7 @@ HMMtransitionMatrix::HMMtransitionMatrix(const HMMtransitionMatrix& obj) :
 	for (unsigned i=0; i < lambda_set.n_elem-1; i++) jump_statistics[i].reset();
 	
 	endstate = transition_graph.n_rows - 1;
-	temperature = 0;	
+	temperature = lambda_set.n_elem - 1;	
 }
 
 
@@ -144,10 +145,11 @@ double HMMtransitionMatrix::transition_matrix_density(const arma::mat& c_transit
 {
 	double logsumme = 0;
 	
+	arma::mat with_prior_matrix =  arma::conv_to<arma::mat>::from(transition_graph > 0) * prior + c_count_matrix;
+	
 	for (arma::uword i=0; i < c_transition_matrix.n_rows - 1; i++) 
 	{
-		arma::rowvec prior_row = ( arma::conv_to<arma::mat>::from(transition_graph) )(i, arma::span::all);
-		logsumme += log_dirichlet_density(c_transition_matrix(i, arma::span::all), prior_row + c_count_matrix(i, arma::span::all));
+		logsumme += log_dirichlet_density(c_transition_matrix(i, arma::span::all), with_prior_matrix(i, arma::span::all));
 	}
 	
 	return logsumme;
@@ -197,7 +199,7 @@ void HMMtransitionMatrix::random_matrix()
 	}
 }
 
-void HMMtransitionMatrix::random_temperature()
+double HMMtransitionMatrix::random_temperature()
 {
 	// assumes that the temperature can go up or down linearly
 	using namespace arma;
@@ -238,7 +240,10 @@ void HMMtransitionMatrix::random_temperature()
 		if (temperature < proposed_temp) jump_statistics[temperature](jump_probability); else jump_statistics[proposed_temp](jump_probability);
 		
 		if (log(test_randoms()) < log_proposal) temperature = proposed_temp;
-	}
+		
+		return (log_proposal>0)?1:exp(log_proposal);
+	} 
+	else return 0;
 }
 		
 arma::mat HMMtransitionMatrix::get_transition_matrix()

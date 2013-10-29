@@ -8,5 +8,6 @@ generate_initial_parameters,
   transition_to_indexmatrix,
   simulation,
   cnav.regression,
-  cnav.simulation
+  cnav.simulation,
+  cnav.unormdensity
 )

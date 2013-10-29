@@ -30,14 +30,16 @@ Gibbs_Sampling::Gibbs_Sampling(const HMMdataSet& observed_data,
 	arma::uword preparation, 
 	arma::uword max_sequence_length,  
 	arma::uword how_many_sequence_tries,
+	bool exact, bool collect, bool improvedSampling, 
 	arma::uword rand_seed) : 
 	SequencerInstance(observed_data, HMMtransitionMatrix(init_lambda, init_transition_graph, init_emission_matrix, rand_seed, 0.5), 
-	                  rand_seed, amount, preparation, max_sequence_length, how_many_sequence_tries),
+	                  rand_seed, exact, collect, amount, preparation, max_sequence_length, how_many_sequence_tries),
 	chib_ML_estimation(rand_seed)
 {
 	Rcpp::Rcout << "\nGibbs start ...!\n"; 
 	arma::uword nid = observed_data.n_individuals();
 	Rcpp::Rcout << "\nNumber of individuals = " << nid << "\n";
+	samplingOrderImproved = improvedSampling;
 }
 
 
@@ -54,7 +56,7 @@ arma::vec Gibbs_Sampling::get_kullback_divergence()
 
 arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 {
-	arma::mat samples(mc, SequencerInstance.get_transition_instance().get_parameters().n_elem + 2); // first position is the amount of approximated data
+	arma::mat samples(mc, SequencerInstance.get_transition_instance().get_parameters().n_elem + 3); // first position is the amount of approximated data
     arma::uword counter = 0;
     arma::wall_clock zeit;
     zeit.tic();
@@ -62,6 +64,9 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
     
     Rcpp::Rcout << "\nStarting tempered Gibbs sampling with " << burnin << " burn-in and " << mc << " normal samples \n>";
     Rcpp::Rcout.flush();
+   
+    arma::uword perc_tick = mc/4; if (perc_tick == 0) perc_tick=1;
+    arma::uword stroke_tick= mc/100; if (stroke_tick == 0) stroke_tick=1;
    
 	while (counter < mc)
 	{
@@ -71,28 +76,34 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 			double amounts;
 			arma::uword repeats = SequencerInstance.simulate_transition_counts(amounts);
 
-			// Second step: simulate the transition matrix
-			SequencerInstance.get_transition_instance().random_matrix();
-			
+            // I suspect that the sampling order is critical
+            if (!samplingOrderImproved) SequencerInstance.get_transition_instance().random_matrix(); // Second step: simulate the transition matrix
+						
 			// Third step: change temperature
-			SequencerInstance.get_transition_instance().random_temperature();
+			double jumpingProb = SequencerInstance.get_transition_instance().random_temperature(); 
+			
+			// I suspect that the sampling order is critical. See above
+            if (samplingOrderImproved) SequencerInstance.get_transition_instance().random_matrix(); // Second step: simulate the transition matrix
 
 			// Now save data
 			if (burnin == 0) 
 			{
+				
 				samples(counter,0) = repeats;
 				samples(counter,1) = amounts;
-				samples(counter, arma::span(2,samples.n_cols-1)) = SequencerInstance.get_transition_instance().get_parameters();
+				samples(counter,2) = jumpingProb;
+				samples(counter, arma::span(3,samples.n_cols-1)) = SequencerInstance.get_transition_instance().get_parameters();
 			    counter++;
+		    
 			} else {
 				burnin--;
 			}
 			
 		    if (counter > 0) {
-			    if (counter % (mc/4) == 0) {
+			    if (counter % perc_tick == 0) {
 					 Rcpp::Rcout <<  counter*100/mc << "%"; Rcpp::Rcout.flush(); 
 				} else {
-				    if (counter % (mc/100) == 0)  Rcpp::Rcout <<  "-"; Rcpp::Rcout.flush(); 
+				    if (counter % stroke_tick == 0)  Rcpp::Rcout <<  "-"; Rcpp::Rcout.flush(); 
 				}
 		    }
 		    
@@ -120,16 +131,14 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 }
 
 
-double Gibbs_Sampling::get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample)
+arma::rowvec Gibbs_Sampling::get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample)
 {
 	using namespace arma;
 	
 	uword n_states = SequencerInstance.get_transition_instance().get_endstate() + 1;
 	
 	mat transmatrix(n_states,n_states);
-	mat::iterator miter = transmatrix.begin();
-	rowvec::const_iterator viter = transition_matrix_sample.begin();
-	for (;miter != transmatrix.end(); miter++, viter++) *miter = *viter;
+	std::copy(transition_matrix_sample.begin(), transition_matrix_sample.end(), transmatrix.begin());
 	
 	return chib_ML_estimation.calculate_marginal_likelihood(SequencerInstance, transmatrix);
 }
@@ -138,4 +147,9 @@ double Gibbs_Sampling::get_Chib_marginal_likelihood(const arma::rowvec& transiti
 arma::vec Gibbs_Sampling::get_naive_marginal_likelihood(arma::uword n_samp)
 {
 	return SequencerInstance.get_naive_marginal_likelihood(n_samp);
+}
+
+arma::uword Gibbs_Sampling::get_number_of_prepared_realizations()
+{
+	return SequencerInstance.get_number_of_prepared_realizations();
 }

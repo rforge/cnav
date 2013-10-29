@@ -32,13 +32,14 @@ class Gibbs_Sampling
 {
 	HMMsequenceProducer SequencerInstance;
 	HMMchib chib_ML_estimation;
+	bool samplingOrderImproved;	
 	
 	public:
 	
 	Gibbs_Sampling(const HMMdataSet& observed_data,	const arma::vec& init_lambda, 
 	const arma::umat& init_transition_graph, const arma::umat& init_emission_matrix,
 	double amount, arma::uword preparation, arma::uword max_sequence_length,  
-	arma::uword how_many_sequence_tries = 30000, 
+	arma::uword how_many_sequence_tries = 30000, bool exact = false, bool collect = false, bool improvedSampling = true,
 	arma::uword rand_seed = 42);
 	
 	arma::mat run(arma::uword burnin, arma::uword mc);
@@ -46,8 +47,10 @@ class Gibbs_Sampling
 	arma::vec get_temperature_probabilities();
 	arma::vec get_kullback_divergence();
 	
-	double get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample);
+	arma::rowvec get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample);
 	
 	arma::vec get_naive_marginal_likelihood(arma::uword n_samp);
+	
+	arma::uword get_number_of_prepared_realizations();
 
 };

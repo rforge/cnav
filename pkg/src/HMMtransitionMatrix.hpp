@@ -58,7 +58,7 @@ class HMMtransitionMatrix
 	void set_transition_counts(const arma::umat& new_transition_counts);
 	
 	void random_matrix();       // draws new matrix
-	void random_temperature();  // changes temperature
+	double random_temperature();  // changes temperature
 	
 	arma::mat get_transition_matrix();
 	const arma::umat& get_emission_matrix() const;

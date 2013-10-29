@@ -2,7 +2,7 @@
 \alias{print.cnav.regression}
 \alias{summary.cnav.regression}
 \alias{print.summary.cnav.regression}
-\title{Genome analysis of joint copy-number and allelic variation by Bayesian Hidden Markov Model inference.}
+\title{GENOME ANALYSIS OF JOINT COPY-NUMBER AND ALLELIC VARIATION BY BAYESIAN HIDDEN MARKOV MODEL INFERENCE}
 \description{Determine posterior distribution of HMM transition matrix by serially tempered Gibbs sampling.}
 \usage{
 cnav.regression(genotypes, individuals, weights, transition_matrix, emission_matrix, temperatures,
@@ -21,6 +21,8 @@ cnav.regression(genotypes, individuals, weights, transition_matrix, emission_mat
 \item{preparation}{ another tuning parameter - how many sequences should be generated for approximation}
 \item{max_unbiased_sequence_generation_repeats}{ the maximum number of trials to generate the genotypes unbiasedly}
 \item{max_sequence_length}{ just a restriction - the maximum length of a Markov path}
+\item{exact}{ to control whether the sequences preparation before sampling is done exactly (TRUE) or approximately (FALSE) }
+\item{collect}{ to control whether sequences found during sampling are added to the sequences preparation set (TRUE) or not (FALSE) }
 \item{burnin}{ how many samples should be dropped beforehand, integer}
 \item{mc}{ number of MC samples, integer}
 \item{seed}{ a random number to make the MCMC (partly) reproducible, integer}
@@ -33,9 +35,21 @@ An object of class \code{cnav.result}, basically a list including elements
 \item{mc.samples.transition.matrix}{Gibbs output. The random samples for the transition matrix, order is column-wise.}
 \item{mean.temperature.jumping.probabilities}{the probability to jump from lower to higher temperature for each temperature index ... useful to determine temperature steps}
 \item{kullback.leibler.divergences}{the information amount taken up by the posterior distribution, compared to the prior distribution.}
-\item{chib.marginal.likelihoods}{estimator for the log marginal likelihood of the model, calculated after the Chib method.}
+\item{chib.marginal.likelihoods}{estimator for the log marginal likelihood of the model, calculated after the Chib method. Provided as a matrix.
+ \tabular{rlll}{
+    [,1] \tab Chib.Marginal.Likelihood   \tab numeric \tab the actual Chib estimator, calculated as log likeliood + log prior density - log posterior density \cr
+    [,2] \tab Point.Likelihood \tab numeric \tab log likelihood for given theta \cr
+    [,3] \tab Point.Prior.Density    \tab numeric \tab log prior density for given theta \cr
+    [,4] \tab Point.Posterior.Density   \tab numeric \tab log posterior density for given theta \cr
+  } 
+}
+\item{chib.estimation.points}{sample points at which the chib marginal likelihood is calculated.}
 \item{naive.dirichlet.marginal.likelihoods}{log marginal likelihood when a conjugate Dirichlet prior is used for naive estimation of genotype frequencies. For
 comparison with the marginal likelihood of the HMM model.}
+\item{setsize.of.approximation.sequences}{Feedback how big the set of pre-defined sequences actually was. Refer to parameters \code{exact} and \code{preparation}.}
+\item{transition.graph}{The transition graph - just for completeness.}
+\item{emission.matrix}{The emission matrix - the same, just for completeness.}
+\item{n.samples}{Another feedback. How many samples have actually been produced.}
 }
 \author{Andreas Recke}
 \examples{

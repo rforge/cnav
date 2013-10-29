@@ -25,6 +25,10 @@ cnav.simulation = function(target = c("haplotypes","diplotypes", "half", "full",
 {
   target = match.arg(target)
 
+  # all row sums of the transition matrix must be 1, except the last
+  transition_matrix <- transition_matrix / rowSums(transition_matrix)
+  transition_matrix[nrow(transition_matrix),] = rep(0, ncol(transition_matrix))
+
   # check compatibility of emission matrix with transition matrix
   if (nrow(emission_matrix) != nrow(transition_matrix)) stop("transition matrix does not match emission matrix!\n")
 
