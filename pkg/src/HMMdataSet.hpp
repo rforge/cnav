@@ -32,25 +32,19 @@
 
 class HMMdataSet {
 	
-	arma::umat genotype_list;                    // stores the unique observed genotypes
-    
-    arma::uword number_of_individuals;
-    arma::uvec individuals;                       // stores, which genotype refs are for which individual. Must be sorted
-    arma::uvec genotype_refs;					  // stores the genotype refs to the genotype_list
-    arma::vec  id_weights;                        // stores the probability weights for weighted data
+	arma::umat genotype_list;                    // stores the unique observed genotypes - a sorted list!!!
+    arma::uvec genotype_refs;					 // stores the genotype refs to the genotype_list
     
 public:
-    HMMdataSet(arma::umat init_genotypes,  arma::uvec init_individuals,  arma::vec init_probabilities);
-    
-    arma::uvec random_draw(BasicTypes::base_generator_type& rand_gen);
+    HMMdataSet(arma::umat init_genotypes);
     
     arma::uword get_ref_count();
+    const arma::uword n_individuals() const;
+    
+    const arma::uvec& get_genotype_refs() const;
     arma::urowvec get_genotype(arma::uword ref);
     void get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowvec genotype);
     
-    arma::uword n_individuals() const;
-    
     double calculate_likelihood(const arma::vec& probabilities);
-    
-    arma::vec naive_marginal_likelihood(arma::uword Nsamp, BasicTypes::base_generator_type& rand_gen);
+    double naive_marginal_likelihood(double prior = 0.5);
 };

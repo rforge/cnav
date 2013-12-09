@@ -34,6 +34,9 @@ class Gibbs_Sampling
 	HMMchib chib_ML_estimation;
 	bool samplingOrderImproved;	
 	
+	arma::mat constants_merker;
+	arma::umat exchange_saver;
+	
 	public:
 	
 	Gibbs_Sampling(const HMMdataSet& observed_data,	const arma::vec& init_lambda, 
@@ -49,8 +52,14 @@ class Gibbs_Sampling
 	
 	arma::rowvec get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample);
 	
-	arma::vec get_naive_marginal_likelihood(arma::uword n_samp);
+	arma::vec get_constants();
 	
-	arma::uword get_number_of_prepared_realizations();
+	double get_naive_marginal_likelihood();
+	
+	arma::mat get_constants_trace() { return constants_merker; }
+	
+	arma::mat get_normalizer_data();
+	
+	arma::umat get_exchanger();
 
 };

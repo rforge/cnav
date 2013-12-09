@@ -79,7 +79,7 @@ BasicTypes::SequenceReferenceTuple produce_random_sequence(
 
  
 RcppExport SEXP HMMunnormalizedDensity(
-              SEXP genotypes, SEXP individuals, SEXP weights,
+              SEXP genotypes, 
               SEXP transition_matrix, SEXP emission_matrix, 
               SEXP count, SEXP random_seed, SEXP max_seq_len)
 {
@@ -91,15 +91,9 @@ RcppExport SEXP HMMunnormalizedDensity(
     arma::imat ia_genotypes(iGenotypes.begin(), iGenotypes.rows(), iGenotypes.cols(), true);
     arma::umat ua_genotypes = arma::conv_to<arma::umat>::from(ia_genotypes);
 
-    IntegerVector iIDs(individuals);
-    arma::ivec ia_ids(iIDs.begin(), iIDs.size(), true);
-    arma::uvec ua_ids = arma::conv_to<arma::uvec>::from(ia_ids);
-    
-    NumericVector iWeights(weights);
-    arma::vec na_weights(iWeights.begin(), iWeights.size(), true);
-	
 	// And initialize a data object
-	HMMdataSet dataTest(ua_genotypes, ua_ids, na_weights);
+	HMMdataSet dataTest(ua_genotypes);
+	
 	
 	// take up the rest of values
 	arma::uword randseed = as<arma::uword>(random_seed);

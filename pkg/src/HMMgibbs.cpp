@@ -56,11 +56,15 @@ arma::vec Gibbs_Sampling::get_kullback_divergence()
 
 arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 {
-	arma::mat samples(mc, SequencerInstance.get_transition_instance().get_parameters().n_elem + 3); // first position is the amount of approximated data
+	arma::mat samples(mc, SequencerInstance.get_transition_instance().get_parameters().n_elem + 1); // first position is the jumping_prob, second the temperature
     arma::uword counter = 0;
     arma::wall_clock zeit;
     zeit.tic();
     bool has_been_interrupted = false;
+    
+    exchange_saver = arma::zeros<arma::umat>(mc, 2);
+    
+    constants_merker = arma::zeros<arma::mat>(mc, SequencerInstance.get_transition_instance().get_normalization_constants().n_elem);
     
     Rcpp::Rcout << "\nStarting tempered Gibbs sampling with " << burnin << " burn-in and " << mc << " normal samples \n>";
     Rcpp::Rcout.flush();
@@ -68,19 +72,37 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
     arma::uword perc_tick = mc/4; if (perc_tick == 0) perc_tick=1;
     arma::uword stroke_tick= mc/100; if (stroke_tick == 0) stroke_tick=1;
    
-	while (counter < mc)
+    // pre-sampling to calculate the normalization constants for each temperature
+    //~ SequencerInstance.get_transition_instance().set_temperature(SequencerInstance.get_transition_instance().n_temperatures() - 1);
+	//~ while (burnin > 0)
+	//~ {
+		//~ double amounts;
+		//~ arma::uword repeats = SequencerInstance.simulate_transition_counts(amounts);
+		//~ SequencerInstance.get_transition_instance().save_realization_for_constants();
+		//~ SequencerInstance.get_transition_instance().random_matrix();
+		//~ Rcpp::Rcout <<  "*"; Rcpp::Rcout.flush(); 
+		//~ burnin--;
+	//~ }
+//~ 
+    //~ SequencerInstance.get_transition_instance().set_temperature(SequencerInstance.get_transition_instance().n_temperatures() - 1);
+    //~ 
+	
+    // sampling
+   	while (counter < mc)
 	{
 		try {
 			// First step: simulate a hidden sequence set - matching the observed data
 			arma::umat transition_counts;
-			double amounts;
-			arma::uword repeats = SequencerInstance.simulate_transition_counts(amounts);
+			
+			arma::uword ex1, ex2;
+			SequencerInstance.simulate_transition_counts(ex1, ex2);
 
-            // I suspect that the sampling order is critical
+		    // I suspect that the sampling order is critical
             if (!samplingOrderImproved) SequencerInstance.get_transition_instance().random_matrix(); // Second step: simulate the transition matrix
 						
 			// Third step: change temperature
-			double jumpingProb = SequencerInstance.get_transition_instance().random_temperature(); 
+			double jumpingProb = 0;
+			jumpingProb = SequencerInstance.get_transition_instance().random_temperature(); 
 			
 			// I suspect that the sampling order is critical. See above
             if (samplingOrderImproved) SequencerInstance.get_transition_instance().random_matrix(); // Second step: simulate the transition matrix
@@ -88,11 +110,12 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 			// Now save data
 			if (burnin == 0) 
 			{
+				constants_merker(counter,arma::span::all) = arma::trans(SequencerInstance.get_transition_instance().get_normalization_constants());
+				samples(counter,0) = jumpingProb;
+				samples(counter, arma::span(1,samples.n_cols-1)) = SequencerInstance.get_transition_instance().get_parameters();
+				exchange_saver(counter,0) = ex1;
+				exchange_saver(counter,1) = ex2;
 				
-				samples(counter,0) = repeats;
-				samples(counter,1) = amounts;
-				samples(counter,2) = jumpingProb;
-				samples(counter, arma::span(3,samples.n_cols-1)) = SequencerInstance.get_transition_instance().get_parameters();
 			    counter++;
 		    
 			} else {
@@ -101,6 +124,7 @@ arma::mat Gibbs_Sampling::run(arma::uword burnin, arma::uword mc)
 			
 		    if (counter > 0) {
 			    if (counter % perc_tick == 0) {
+						
 					 Rcpp::Rcout <<  counter*100/mc << "%"; Rcpp::Rcout.flush(); 
 				} else {
 				    if (counter % stroke_tick == 0)  Rcpp::Rcout <<  "-"; Rcpp::Rcout.flush(); 
@@ -144,12 +168,23 @@ arma::rowvec Gibbs_Sampling::get_Chib_marginal_likelihood(const arma::rowvec& tr
 }
 
 
-arma::vec Gibbs_Sampling::get_naive_marginal_likelihood(arma::uword n_samp)
+double Gibbs_Sampling::get_naive_marginal_likelihood()
 {
-	return SequencerInstance.get_naive_marginal_likelihood(n_samp);
+	return SequencerInstance.get_naive_marginal_likelihood();
 }
 
-arma::uword Gibbs_Sampling::get_number_of_prepared_realizations()
+
+arma::vec Gibbs_Sampling::get_constants()
 {
-	return SequencerInstance.get_number_of_prepared_realizations();
+	return SequencerInstance.get_transition_instance().get_normalization_constants();
+}
+
+arma::mat Gibbs_Sampling::get_normalizer_data()
+{
+	return SequencerInstance.get_transition_instance().export_constant_data();
+}
+
+arma::umat Gibbs_Sampling::get_exchanger()
+{
+	return exchange_saver;
 }

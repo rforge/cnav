@@ -70,19 +70,27 @@ class HMMsequenceProducer
     
 	arma::umat transition_counts;				 // containes the realizations
 	arma::uword countDownCounter;				 // for the parallel process
-	arma::uvec countDownList;					 // current data set, how many counts for which genotype
 	
     HMMdataSet observed_data;
     
     double percentage;				 // number of sequences that is simulate randomly
-    bool allow_collect;
+    //~ bool allow_collect;
     
-    typedef boost::container::flat_multimap<double, BasicTypes::SequenceReferenceTuple> multimap_type;
-    multimap_type realizations;  
-    
+    //~ typedef boost::container::flat_multimap<double, BasicTypes::SequenceReferenceTuple> multimap_type;
+    //~ multimap_type realizations;  
+    //~ 
     arma::uvec genotype_realizations_count;
     // this set stores a lot of data of realizations ... for the approximation
 
+    // Revision 12/2013 - current states of realizations
+    typedef boost::container::vector<BasicTypes::SequenceReferenceTuple> sequence_state_vector_type;  
+    sequence_state_vector_type current_sequence_states;
+    arma::uvec unchanged_states_vector;
+    arma::umat summarize_current_states();
+    void completely_random_move(boost::container::vector<BasicTypes::SequenceReferenceTuple>::iterator target, BasicTypes::base_generator_type& rand_gen);    
+    
+    arma::uword exchanges_resimulation, exchanges_treesearch;    
+    
     // A random generator for the main thread
     BasicTypes::base_generator_type common_rgen;
 
@@ -97,13 +105,13 @@ class HMMsequenceProducer
 	const arma::uword MAXCOUNT_TRIALS_FOR_SEQUENCES;
   
 	// Functions to calculate likelihood values with log mathematics
-	double logSum (double logFirst, double logSecond);
-    double logSequenceProbability (const arma::umat& sequenceTransits, const arma::mat& transition_matrix);
-    arma::vec log_to_linear_probs (const arma::vec& log_probs);
+	//~ double logSum (double logFirst, double logSecond);
+    //~ double logSequenceProbability (const arma::umat& sequenceTransits, const arma::mat& transition_matrix);
+    //~ arma::vec log_to_linear_probs (const arma::vec& log_probs);
     arma::uword select_state(const arma::rowvec& row_parameters, BasicTypes::base_generator_type& rand_gen);
 
     // Functions to generate sequence solutions for given genotypes
-    void add_approximation(arma::uword ref, arma::uword counts);
+    //~ void add_approximation(arma::uword ref, arma::uword counts);
         
     // *** recursively and randomly searches a solution for a genotype. Started by construct_genotype
     BasicTypes::SequenceReferenceTuple recursive_search_genotype(const arma::urowvec& target_genotype, 
@@ -112,28 +120,28 @@ class HMMsequenceProducer
 				arma::umat& transition_counter, 
 				bool& finished, BasicTypes::base_generator_type& rgen);
 				
-	// *** generates a number of solutions			
-	void construct_genotype(arma::uword refGenotype, arma::uword how_many, BasicTypes::base_generator_type& rgen);
-        
-    // *** this generates a number of exact solutions ... for unbiased sampling
-    void construct_exact_sequences();
-    void exact_recursive_search_genotype(const arma::uword ref,
-                                          arma::uword depth, arma::uword state, bool ran_twice, 
-                                          arma::urowvec& simGenotype, arma::urowvec& simSequence,
-                                          arma::umat& transition_counter);
+	//~ // *** generates a number of solutions			
+	//~ void construct_genotype(arma::uword refGenotype, arma::uword how_many, BasicTypes::base_generator_type& rgen);
+        //~ 
+    //~ // *** this generates a number of exact solutions ... for unbiased sampling
+    //~ void construct_exact_sequences();
+    //~ void exact_recursive_search_genotype(const arma::uword ref,
+                                          //~ arma::uword depth, arma::uword state, bool ran_twice, 
+                                          //~ arma::urowvec& simGenotype, arma::urowvec& simSequence,
+                                          //~ arma::umat& transition_counter);
 
-  
-    // Storage functions
-    double hashValue(const arma::urowvec& sequence);
-    void push_realization(const BasicTypes::SequenceReferenceTuple& realization_element);
-        
+  //~ 
+    //~ // Storage functions
+    //~ double hashValue(const arma::urowvec& sequence);
+    //~ void push_realization(const BasicTypes::SequenceReferenceTuple& realization_element);
+        //~ 
     // Functions to do the parallel generation of sequence realizations
     // Strategy: a number of sequences is generated and those which fit 
     // are stored. The rest is approximated. The amount of approximated
     // sequences is monitored
     
     // *** central post office for threads
-    void count_down_realizations(const BasicTypes::SequenceReferenceTuple& ref);
+    void count_down_realizations(const BasicTypes::SequenceReferenceTuple& ref, BasicTypes::base_generator_type& rgen);
     
     // *** post office full check
     bool count_down_finished();
@@ -159,7 +167,7 @@ public:
 	// Function to simulate a sequence based upon a given transition matrix
     BasicTypes::SequenceReferenceTuple produce_random_sequence(const arma::mat& transition_matrix, BasicTypes::base_generator_type& rand_gen);
     		
-	arma::uword simulate_transition_counts(double& approx_amount); // parallel simulation!
+	void simulate_transition_counts(arma::uword& exch_resamp, arma::uword& exch_tree);
 	// returns the fraction of data that needed to be approximated
 	
 	void print_realizations_count();
@@ -167,9 +175,9 @@ public:
     HMMtransitionMatrix& get_transition_instance();
     HMMdataSet& get_observations_instance();
     
-    arma::vec get_naive_marginal_likelihood(arma::uword n_samp);
+    double get_naive_marginal_likelihood();
     
-    arma::uword get_number_of_prepared_realizations();
+    //~ arma::uword get_number_of_prepared_realizations();
     
     bool system_interrupted();
 

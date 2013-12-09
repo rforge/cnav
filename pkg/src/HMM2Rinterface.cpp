@@ -11,8 +11,9 @@
 
 #include <boost/lexical_cast.hpp>
 
-RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEXP transition_matrix, SEXP emission_matrix, 
-                             SEXP temperatures, SEXP percentage, SEXP r_how_many_sequence_tries, 
+RcppExport SEXP HMMinterface(SEXP genotypes, SEXP transition_matrix, SEXP emission_matrix, 
+                             SEXP temperatures, 
+                             SEXP percentage, SEXP r_how_many_sequence_tries, 
                              SEXP r_preparation, SEXP r_maxsequence_length,
                              SEXP exact, SEXP collect, SEXP betterSamplingOrder,
                              SEXP burnin, SEXP mc, SEXP seed)
@@ -25,16 +26,9 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
     arma::imat ia_genotypes(iGenotypes.begin(), iGenotypes.rows(), iGenotypes.cols(), true);
     arma::umat ua_genotypes = arma::conv_to<arma::umat>::from(ia_genotypes);
 
-    IntegerVector iIDs(individuals);
-    arma::ivec ia_ids(iIDs.begin(), iIDs.size(), true);
-    arma::uvec ua_ids = arma::conv_to<arma::uvec>::from(ia_ids);
-    
-    NumericVector iWeights(weights);
-    arma::vec na_weights(iWeights.begin(), iWeights.size(), true);
-    
     NumericVector iTemps(temperatures);
     arma::vec na_temps(iTemps.begin(), iTemps.size(), true);
-    	
+        	
     arma::uword randseed = as<arma::uword>(seed);
     BasicTypes::base_generator_type	rgen(randseed);
     
@@ -57,17 +51,15 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
     arma::imat ia_Emission(iEmission.begin(), iEmission.rows(), iEmission.cols(), true);
     arma::umat ua_Emission = arma::conv_to<arma::umat>::from(ia_Emission);
     	    	
-	HMMdataSet dataTest(ua_genotypes, ua_ids, na_weights);
+	HMMdataSet dataTest(ua_genotypes);
 	
 	Gibbs_Sampling Runner(dataTest, na_temps, ua_graph, ua_Emission, a_percentage, preparation, maxseqlength, 
 	                        how_many_sequence_tries, exact_sampling, collect_during_sampling, improvedSampling, randseed);
 	arma::mat runResult = Runner.run(iburn, imc);
 	
-	arma::uvec res_temperature_indices = arma::conv_to<arma::uvec>::from(runResult(arma::span::all,3));
-	arma::uvec number_of_sequence_generation_repeats = arma::conv_to<arma::uvec>::from(runResult(arma::span::all,0));
-	arma::vec amount_of_unbiasedly_simulated_sequences = runResult(arma::span::all,1);
-	arma::vec jumpingProbs = runResult(arma::span::all,2);
-	arma::mat mc_samples_transition_matrix = runResult(arma::span::all, arma::span(4,runResult.n_cols-1));
+	arma::uvec res_temperature_indices = arma::conv_to<arma::uvec>::from(runResult(arma::span::all,1));
+	arma::vec jumpingProbs = runResult(arma::span::all,0);
+	arma::mat mc_samples_transition_matrix = runResult(arma::span::all, arma::span(2,runResult.n_cols-1));
 	
 	// just calculate some marginal likelihoods
 	arma::uword number_of_samples = 1 + imc / na_temps.n_elem / 10;
@@ -103,25 +95,29 @@ RcppExport SEXP HMMinterface(SEXP genotypes, SEXP individuals, SEXP weights, SEX
 	  cvec, CharacterVector::create("Chib.Marginal.Likelihood", "Point.Likelihood", "Point.Prior.Density","Point.Posterior.Density"));
 	chibResult.attr("dimnames") = dimnms;
 	
-	Rcpp::Rcout << "\nCalculation naive likelihood for comparison\n";
+	Rcpp::Rcout << "\nCalculation naive likelihood for comparison\n"; 
 	
-	arma::vec naiveMarlik = Runner.get_naive_marginal_likelihood(1000);
-	arma::uword approximate_realizations = Runner.get_number_of_prepared_realizations();
-		
+	double naiveMarlik = Runner.get_naive_marginal_likelihood();
+	arma::vec constants_posterior = Runner.get_constants();
+	arma::mat constants_merker = Runner.get_constants_trace();
+	arma::mat constants_class = Runner.get_normalizer_data();
+	arma::umat exch_sav = Runner.get_exchanger();
+			
 	List HMMresult = List::create( _("temperature.indices") = wrap(res_temperature_indices),
-	                               _("number.of.sequence.generation.repeats") = wrap(number_of_sequence_generation_repeats),
-	                               _("amount.of.unbiasedly.simulated.sequences") = wrap(amount_of_unbiasedly_simulated_sequences ),
 	                               _("mc.samples.transition.matrix") = wrap(mc_samples_transition_matrix),
 	                               _("mean.temperature.jumping.probabilities") = wrap(Runner.get_temperature_probabilities()),
 	                               _("kullback.leibler.divergences") = wrap(Runner.get_kullback_divergence()),
 	                               _("chib.marginal.likelihoods") = chibResult,
 	                               _("chib.estimation.points") = wrap(marginal_calculation_points),
-	                               _("naive.dirichlet.marginal.likelihoods") = wrap(naiveMarlik),
-	                               _("setsize.of.approximation.sequences") = approximate_realizations,
+	                               _("naive.dirichlet.marginal.likelihoods") = naiveMarlik,
 	                               _("transition.graph") = wrap(ua_graph),
 	                               _("emission.matrix") = wrap(ua_Emission),
 	                               _("n.samples") = imc,
-	                               _("jumping.probabilities") = wrap(jumpingProbs));
+	                               _("jumping.probabilities") = wrap(jumpingProbs),
+	                               _("normalizing.constants") = wrap(constants_posterior),
+	                               _("trace.normalizing.constants") = wrap(constants_merker),
+	                               _("supporting.normalizer.data") = wrap(constants_class),
+	                               _("exchanges") =  wrap(exch_sav) );
 	                            
 	
 	return HMMresult;

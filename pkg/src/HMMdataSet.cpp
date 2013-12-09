@@ -42,14 +42,9 @@
 #include <boost/generator_iterator.hpp>
 
  
-HMMdataSet::HMMdataSet(arma::umat init_genotypes,  arma::uvec init_individuals,  arma::vec init_probabilities)
+HMMdataSet::HMMdataSet(arma::umat init_genotypes)
 {
 	using namespace arma;
-	
-	individuals = init_individuals;  // expects sorted list of individuals!
-	id_weights  = init_probabilities; // must sum up to 1.0 for each individual
-	
-	number_of_individuals = round(accu(id_weights));
 	
 	uword elements = init_genotypes.n_rows;
 	genotype_refs = linspace<uvec>(0, elements-1, elements);
@@ -88,6 +83,9 @@ HMMdataSet::HMMdataSet(arma::umat init_genotypes,  arma::uvec init_individuals, 
 	
 	// now, the list is compressed
 	genotype_list = genotype_list(span(0, store_position-1), span::all);
+	
+	// and the corresponding individuals are sorted for speed purposes
+	genotype_refs = sort(genotype_refs);
 		
 }
 		
@@ -124,69 +122,6 @@ void HMMdataSet::get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowve
 	if (found) tuple.get<1>() = index;
 }
 
-arma::uvec HMMdataSet::random_draw(BasicTypes::base_generator_type& rand_gen)
-{
-	using namespace arma;
-	
-	uvec::const_iterator id_iter = individuals.begin();
-	uword start_id = *id_iter;
-		
-	vec::const_iterator weights_iter = id_weights.begin();
-	uvec::const_iterator ref_iter = genotype_refs.begin();
-	
-	// Prepare result data
-	uvec countlist = zeros<uvec>(genotype_list.n_rows);
-	
-	// Prepare random generator
-	boost::random::uniform_real_distribution<> test_dist(0.0, 1.0);
-	boost::random::variate_generator<BasicTypes::base_generator_type&, boost::random::uniform_real_distribution<> > 
-	   test_randoms(rand_gen, test_dist);
-	
-	// Use property of being sorted
-	
-	while (id_iter != individuals.end())
-	{
-		// draw a random number
-		double rnum = test_randoms(), sum = 0.0;
-		bool found;
-		uword current_id = *id_iter;
-		
-		// search it
-		do {
-			sum += *weights_iter;
-			found = rnum <= sum;
-		     		     
-		    if (!found) {
-				weights_iter++;
-				id_iter++;
-				ref_iter++;
-			}
-		} while (!found && id_iter != individuals.end());	
-		
-		// count up the list
-		if (found) countlist[*ref_iter]+=1;
-		
-		if (!found) {
-		   throw Rcpp::exception("Sum of weights does not equal 1","HMMdataSet.cpp",167);
-		}
-	
-	    // and seach until the next individual or end
-	    while (id_iter != individuals.end() && *id_iter == current_id) 
-	    {	
-			weights_iter++;
-			id_iter++;
-			ref_iter++;
-		}
-	}	
-	
-	return countlist;
-}	
-
-arma::uword HMMdataSet::n_individuals() const
-{
-	return number_of_individuals;
-}	
-
 
 /*
  * 
@@ -198,51 +133,63 @@ arma::uword HMMdataSet::n_individuals() const
 double HMMdataSet::calculate_likelihood(const arma::vec& probabilities)
 {
 	using namespace arma;
-	uvec::const_iterator id_iter = individuals.begin();
-	uword start_id = *id_iter;
-		
-	vec::const_iterator weights_iter = id_weights.begin();
+	vec alpha = zeros<vec>(get_ref_count());
 	uvec::const_iterator ref_iter = genotype_refs.begin();	
 	
 	double likelihood_result = 0;
-	
-	while (id_iter != individuals.end()) 
+	for (;ref_iter != genotype_refs.end(); ref_iter++) 
 	{
-		double partial_sum = 0;
-		uword current_id = *id_iter;
-	
-	    // Accumulation algorithm makes use of a specialized internal loop
-		while (id_iter != individuals.end() & *id_iter == current_id) 
-		{
-			partial_sum += probabilities[*ref_iter] * (*weights_iter);
-			id_iter++;
-			weights_iter++;
-			ref_iter++;
-		}
-		
-        likelihood_result += log(partial_sum);
+		likelihood_result += log(probabilities[*ref_iter]);
+		alpha[*ref_iter] += 1.0;
 	}
+	
+	likelihood_result += boost::math::lgamma(accu(alpha) + 1);   // (x1+x2+x3+...)! = n!
+	for (vec::const_iterator iter = alpha.begin(); iter != alpha.end(); iter++) likelihood_result -= boost::math::lgamma(*iter + 1);  // x_j!
 	
 	return likelihood_result;
 }
 
-arma::vec HMMdataSet::naive_marginal_likelihood(arma::uword Nsamp, BasicTypes::base_generator_type& rand_gen)
+double HMMdataSet::naive_marginal_likelihood(double prior)
 {
 	using namespace arma;
 	
-	vec result(Nsamp);
-	for (uword i = 0; i < Nsamp; i++) {
-		vec alpha = 0.5 + conv_to<vec>::from(random_draw(rand_gen));
-				
-		double summe = 0.0;
-		vec::const_iterator iter = alpha.begin();
-		for (uword j = 0; iter != alpha.end(); iter++) summe += boost::math::lgamma(*iter);
-		summe -= boost::math::lgamma(arma::accu(alpha));
-		// substract the rest
-		summe += boost::math::lgamma(0.5*double(alpha.n_elem));
-		summe -= double(alpha.n_elem) * boost::math::lgamma(0.5);
-		result[i] = summe;
-	}
+	// initialize 
+	double result = 0;
+	vec alpha = zeros<vec>(get_ref_count());
+	
+	// count number of genotypes in each slot of alpha
+	uvec::const_iterator ref_iter = genotype_refs.begin();	
+	for (;ref_iter != genotype_refs.end(); ref_iter++) alpha[*ref_iter] += 1.0;
+	
+	// calculate exact marginal likelihood
+	double summe = 0.0;
+	vec::const_iterator iter = alpha.begin();
+	
+	// first: add likelihood function 
+	summe += boost::math::lgamma(accu(alpha) + 1);   // (x1+x2+x3+...)! = n!
+	for (; iter != alpha.end(); iter++) summe -= boost::math::lgamma(*iter + 1);  // x_j!
+	
+	// then: add prior
+	summe += boost::math::lgamma(0.5 * double(alpha.n_elem));
+	summe -= double(alpha.n_elem) * boost::math::lgamma(0.5);
+	
+	// at last: substract posterior
+	summe -= boost::math::lgamma(accu(alpha + 0.5));   // (x1+x2+x3+...)! = n!
+	for (; iter != alpha.end(); iter++) summe += boost::math::lgamma(*iter + 0.5); 
+	
 	return result;
-			
 }
+
+
+const arma::uvec& HMMdataSet::get_genotype_refs() const
+{
+	// necessary for 
+	return genotype_refs;
+}
+
+const arma::uword HMMdataSet::n_individuals() const
+{
+	return genotype_refs.n_elem;
+}
+	
+

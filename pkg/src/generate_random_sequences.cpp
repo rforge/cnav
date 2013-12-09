@@ -11,7 +11,7 @@
 RcppExport SEXP HMMgenerateDiplotype(SEXP transition_matrix, SEXP emission_matrix, SEXP count, SEXP random_seed, SEXP max_seq_len)
 {
 	BEGIN_RCPP
-	using namespace Rcpp;
+	using namespace Rcpp; 
 	
 	NumericMatrix nTransitionMatrix(transition_matrix);
     arma::mat n_graph(nTransitionMatrix.begin(), nTransitionMatrix.rows(), nTransitionMatrix.cols(), true);
