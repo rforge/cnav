@@ -89,6 +89,8 @@ HMMsequenceProducer::HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatri
 		producers[i] = boost::thread(boost::bind(&HMMsequenceProducer::produce_realizations, this, rxseed));
 	}
 	
+	transitionData.set_multinomial_coefficient(	observed_data.get_log_multinomial_coefficient() );
+	
 	
 	// prepare the list of current states out of pure random
 	arma::uvec::const_iterator ref_iter = observed_data.get_genotype_refs().begin();

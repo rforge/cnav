@@ -122,6 +122,32 @@ void HMMdataSet::get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowve
 	if (found) tuple.get<1>() = index;
 }
 
+/*
+ * 
+ * name: get_log_multinomial_coefficient
+ * @param: none
+ * @return: the multinomial coefficient in a log scale ... for likelihood functions
+ * 
+ */
+double HMMdataSet::get_log_multinomial_coefficient()
+{
+	using namespace arma;
+	vec alpha = zeros<vec>(get_ref_count());
+	uvec::const_iterator ref_iter = genotype_refs.begin();	
+	
+	double coefficient_result = 0;
+	for (;ref_iter != genotype_refs.end(); ref_iter++) 
+	{
+		alpha[*ref_iter] += 1.0;
+	}
+	
+	coefficient_result += boost::math::lgamma(accu(alpha) + 1);   // (x1+x2+x3+...)! = n!
+	for (vec::const_iterator iter = alpha.begin(); iter != alpha.end(); iter++) coefficient_result -= boost::math::lgamma(*iter + 1);  // x_j!
+	
+	return coefficient_result;
+}
+
+
 
 /*
  * 

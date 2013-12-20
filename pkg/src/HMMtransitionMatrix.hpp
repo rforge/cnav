@@ -39,7 +39,7 @@ class HMMtransitionMatrix
 {
 	arma::uword temperature, endstate;
 	arma::vec lambda_set;
-	
+	double multinomial_coef;
 	
 	double prior;
 	
@@ -58,6 +58,8 @@ class HMMtransitionMatrix
 	double log_dirichlet_density(const arma::rowvec& x, const arma::rowvec& alpha);	
 	double likelihood(double r_temp);
 	
+	double new_likelihood(double r_temp);  // calculates the likelihood with the new formula
+	
 	arma::mat denominator, numerator; // the two matrices that reflect the values for constants
 	arma::umat w_counter;
 	arma::vec mean_normalization_constants;
@@ -66,27 +68,24 @@ class HMMtransitionMatrix
 	
 	class normalization_class
 	{
-		arma::uword collected;
-		arma::uvec weight_ref_columns;
+		arma::uvec collect_count;
 		arma::mat collection;
 		BasicTypes::base_generator_type boot_rng_engine;
-		bool reoptimized;
 		arma::rowvec normalized_constants;
 				
 		double accu_log_values(arma::vec logs);
-		arma::uvec bootstrap_draw();
 		
-		void exp_max_constants(const arma::uvec& indices, arma::uword depth=5);
-				
+		arma::uvec bootstrap_indices(arma::uword n);
+		
 		public:
 		
 		normalization_class(arma::uword n_lambda_levels, arma::uword rand_seed);
 		normalization_class(const normalization_class& obj);
 		
-		void save_weights(arma::rowvec weights_each_level, arma::uword from_level);
-		
 		double get_weight_normalization(arma::uword level);
 		arma::mat export_data();
+		
+		void save_likelihood(double likelihood_ratio, arma::uword for_temperature);
 	};
 	
 	normalization_class NormConstantsWrapper;
@@ -103,6 +102,8 @@ class HMMtransitionMatrix
 	HMMtransitionMatrix(const HMMtransitionMatrix& obj);
 	
 	void set_transition_counts(const arma::umat& new_transition_counts);
+	
+	void set_multinomial_coefficient(double value);
 	
 	void random_matrix();       // draws new matrix
 	double random_temperature();  // changes temperature

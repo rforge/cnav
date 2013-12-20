@@ -104,7 +104,7 @@ void HMMtransitionMatrix::printDKL()
 	for (unsigned i = 0; i < lambda_set.n_elem - 1; i++) Rcpp::Rcout << std::setw(7) << std::setprecision(3) << jump_statistics[i].mean() << " ";
 	
 	Rcpp::Rcout << "\nNormalization constants:" << "   ";
-	for (unsigned i = 0; i < lambda_set.n_elem; i++) Rcpp::Rcout << std::setw(7) << std::setprecision(3) << mean_normalization_constants[i] << " ";
+	for (unsigned i = 0; i < lambda_set.n_elem; i++) Rcpp::Rcout << std::setw(7) << std::setprecision(3) << NormConstantsWrapper.get_weight_normalization(i) << " ";
 		
 	Rcpp::Rcout << "\n";
 	
@@ -170,6 +170,21 @@ double HMMtransitionMatrix::likelihood(double r_temp)
 	return logsumme;
 }
 
+double HMMtransitionMatrix::new_likelihood(double r_temp)
+{
+	double logsumme = multinomial_coef;
+	
+	arma::umat::const_iterator trans_iter = transition_counts.begin();
+	arma::mat::const_iterator prob_iter = transition_matrix.begin();
+	
+	for (; trans_iter != transition_counts.end(); trans_iter++, prob_iter++) 
+		if (*prob_iter > 0) logsumme += log(*prob_iter) * double(*trans_iter);
+
+    logsumme *= r_temp;
+	
+	return logsumme;
+}
+
 
 double HMMtransitionMatrix::transition_matrix_density(const arma::mat& c_transition_matrix, const arma::mat& c_count_matrix) 
 {
@@ -184,6 +199,11 @@ double HMMtransitionMatrix::transition_matrix_density(const arma::mat& c_transit
 	
 	return logsumme;
 	
+}
+
+void HMMtransitionMatrix::set_multinomial_coefficient(double value)
+{
+	multinomial_coef = value;
 }
 
 
@@ -238,7 +258,7 @@ void HMMtransitionMatrix::add_realization_to_constants(arma::uword drawn_at_temp
 		sample[i_temp] = normalization_constant(lambda_set[i_temp]);
 	}
 	
-	NormConstantsWrapper.save_weights(sample, drawn_at_temp);
+	// NormConstantsWrapper.save_weights(sample, drawn_at_temp);
 }
 
 	
@@ -271,7 +291,7 @@ double HMMtransitionMatrix::random_temperature()
 	if (lambda_set.n_elem > 1)  // to exclude the normal case
 	{
 		uword proposed_temp, old_neighbors, new_neighbors;
-		double log_proposal;
+		double log_proposal = 0;
 		
 		boost::random::uniform_real_distribution<> test_dist(0.0, 1.0);
 		boost::random::variate_generator<BasicTypes::base_generator_type&, boost::random::uniform_real_distribution<> > test_randoms(rng_engine, test_dist);
@@ -292,24 +312,24 @@ double HMMtransitionMatrix::random_temperature()
 		if (proposed_temp == 0 || proposed_temp == lambda_set.n_elem - 1) new_neighbors = 1; else new_neighbors = 2;
 		
 		// calculate likelihood
-		add_realization_to_constants(temperature);
+		if (temperature > 0) 
+			NormConstantsWrapper.save_likelihood(new_likelihood(lambda_set[temperature-1] - lambda_set[temperature]), temperature-1);
 				
-		double log_forward = likelihood(lambda_set[proposed_temp]) - NormConstantsWrapper.get_weight_normalization(proposed_temp) +
-		                      normalization_constant(lambda_set[proposed_temp]),
-		       log_backward = likelihood(lambda_set[temperature]) - NormConstantsWrapper.get_weight_normalization(temperature) +
-		                      normalization_constant(lambda_set[temperature]),
-		       log_zero = likelihood(0.0) - mean_normalization_constants[lambda_set.n_elem-1] + 
-		                      normalization_constant(0.0);
-				
-		log_proposal = log_forward - log(double(new_neighbors)) - log_backward + log(double(old_neighbors));
+		if (test_randoms() < 0.03)	
+		{
+			double log_forward = new_likelihood(lambda_set[proposed_temp]) - NormConstantsWrapper.get_weight_normalization(proposed_temp),
+			       log_backward = new_likelihood(lambda_set[temperature]) - NormConstantsWrapper.get_weight_normalization(temperature),
+			       log_zero = 0 - NormConstantsWrapper.get_weight_normalization(lambda_set.n_elem-1);
+					
+			log_proposal = log_forward - log(double(new_neighbors)) - log_backward + log(double(old_neighbors));
+			
+			information_statistics[temperature](log_backward - log_zero); 
 		
-		information_statistics[temperature](log_backward - log_zero); 
-	
-	    double jump_probability = (log_proposal>0)? 1: exp(log_proposal); 
-	    if (temperature < proposed_temp) jump_statistics[temperature](jump_probability); else jump_statistics[proposed_temp](jump_probability);
-		
-		if (log(test_randoms()) < log_proposal) temperature = proposed_temp;
-		
+		    double jump_probability = (log_proposal>0)? 1: exp(log_proposal); 
+		    if (temperature < proposed_temp) jump_statistics[temperature](jump_probability); else jump_statistics[proposed_temp](jump_probability);
+			
+			if (log(test_randoms()) < log_proposal) temperature = proposed_temp;
+		}
 		return (log_proposal>0)?1:exp(log_proposal);
 	} 
 	else return 0;
@@ -378,38 +398,23 @@ arma::uword HMMtransitionMatrix::get_endstate() const
 
 
 HMMtransitionMatrix::normalization_class::normalization_class(arma::uword n_lambda_levels, arma::uword rand_seed) :
-  boot_rng_engine(rand_seed), 
-  collected(0)
- {
+  boot_rng_engine(rand_seed)
+{
 	 using namespace arma;
-	 weight_ref_columns = zeros<uvec>(1000);
-	 collection = zeros<mat>(1000, n_lambda_levels);
-	 normalized_constants = zeros<rowvec>(n_lambda_levels);
-	 reoptimized = false;
+	 
+	 collect_count = zeros<uvec>(n_lambda_levels-1);
+	 collection = zeros<mat>(1000, n_lambda_levels-1);
+	 normalized_constants = zeros<rowvec>(n_lambda_levels-1);
  }
 
 HMMtransitionMatrix::normalization_class::normalization_class(const HMMtransitionMatrix::normalization_class& obj) :
-	weight_ref_columns(obj.weight_ref_columns),
-	collected(obj.collected),
+	collect_count(obj.collect_count),
 	collection(obj.collection),
 	boot_rng_engine(obj.boot_rng_engine),
-	normalized_constants(obj.normalized_constants),
-	reoptimized(obj.reoptimized)
-{}
-
-
-arma::uvec HMMtransitionMatrix::normalization_class::bootstrap_draw()
-{
-	// a simple bootstrapping approach. Just generates a lot of indices, some duplicated, for calculations
-	 boost::uniform_int<arma::uword> boot_dist(0, collected-1);
-	 boost::variate_generator<BasicTypes::base_generator_type&, boost::uniform_int<arma::uword> > boot_random(boot_rng_engine, boot_dist);
-	 arma::uvec result(collected);
-	 arma::uvec::iterator iter = result.begin();
-	 for (; iter != result.end(); iter++) (*iter) = boot_random();
-	 //~ 
-	//~ arma::uvec result = arma::linspace<arma::uvec>(0, collected-1, collected);
-	return result;
+	normalized_constants(obj.normalized_constants)
+{	
 }
+
 
 double HMMtransitionMatrix::normalization_class::accu_log_values(arma::vec logs)
 {
@@ -433,86 +438,50 @@ double HMMtransitionMatrix::normalization_class::accu_log_values(arma::vec logs)
 }
 
 
-void HMMtransitionMatrix::normalization_class::exp_max_constants(const arma::uvec& indices, arma::uword depth)
+arma::uvec HMMtransitionMatrix::normalization_class::bootstrap_indices(arma::uword n)
 {
-	using namespace arma;
+	arma::uvec result(n);
 	
-	if (depth > 0)
+	if (n <= 1) 
+		result[0] = 0; 
+    else
     {
-		// for each constant, calculate the next value
-		
-		for (uword icol = 0; icol < normalized_constants.n_elem; icol++)  // select constant
-		{
-			// search for correct entries
-			uvec logic_selection = weight_ref_columns.subvec(0,collected-1) != icol;
-			if (icol > 0) logic_selection = logic_selection * (weight_ref_columns.subvec(0,collected-1) != icol-1);
-			if (icol < normalized_constants.n_elem-1) logic_selection = logic_selection * (weight_ref_columns.subvec(0,collected-1) != icol+1);
-			uvec entries = find(1 - logic_selection);  // now we have the indices
-			
-			if (entries.n_elem > 0)
-			{
-				vec dividend(entries.n_elem), divisor(entries.n_elem);
-				double scalar_dividend, scalar_divisor;
-						
-	   		    uvec::const_iterator entry_iter = entries.begin();
-	   		    vec::iterator divisor_iter = divisor.begin();
-	   		    vec::iterator dividend_iter = dividend.begin();
-	   		    for (;
-	   		          entry_iter != entries.end(); 
-	   		          entry_iter++, divisor_iter++, dividend_iter++ )
-			    {
-				  	uword zeile = *entry_iter;
-					uword spalte = weight_ref_columns[*entry_iter];
-				    *divisor_iter = normalized_constants[spalte] - collection(zeile,spalte);
-				    *dividend_iter = (*divisor_iter) + collection(zeile, icol);
-		    	}
-			
-		        scalar_divisor = accu_log_values(divisor);
-				scalar_dividend = accu_log_values(dividend);
-				normalized_constants[icol] = scalar_dividend - scalar_divisor;
-			} else {
-				normalized_constants[icol] = 0;
-			}
-			
-		}
-		
-		// call this function again (E-M-algorithm style)
-		exp_max_constants(indices, depth-1);
-	} else {
-		reoptimized = true;
+		boost::uniform_int<arma::uword> dist(0, n-1);
+		boost::random::variate_generator<BasicTypes::base_generator_type&, boost::uniform_int<arma::uword>  > random_int(boot_rng_engine, dist);
+		for (arma::uvec::iterator it = result.begin(); it != result.end(); it++) *it = random_int();
 	}
+	return result;
 }
 
 
-void HMMtransitionMatrix::normalization_class::save_weights(arma::rowvec weights_each_level, arma::uword from_level)
+void HMMtransitionMatrix::normalization_class::save_likelihood(double likelihood_ratio, arma::uword for_temperature)
 {
-	// check whether size is still okay
-	if (collected >= collection.n_rows) 
+    collection(collect_count[for_temperature], for_temperature)	= likelihood_ratio;
+    arma::vec view(collect_count[for_temperature]+1); 
+    arma::uvec indices = bootstrap_indices(collect_count[for_temperature]+1); 
+    arma::uvec::const_iterator it2 = indices.begin();
+    
+    for (arma::vec::iterator it = view.begin() ;  it != view.end(); it++, it2++) 
 	{
-		collection.resize(collection.n_rows + 1000, collection.n_cols);
-		weight_ref_columns.resize(weight_ref_columns.n_elem + 1000);
+		*it = collection(*it2, for_temperature);
 	}
-	
-	collection(collected, arma::span::all) = weights_each_level;
-	weight_ref_columns[collected] = from_level;
-	collected++;
-	reoptimized = false;
+            
+    normalized_constants[for_temperature] = accu_log_values(view) - log(double(collect_count[for_temperature]+1));
+    collect_count[for_temperature] += 1;
 }
 
 
 double HMMtransitionMatrix::normalization_class::get_weight_normalization(arma::uword level)
 {
-	// first: initiate optimization
-	if (!reoptimized && collected > 0) exp_max_constants(bootstrap_draw());  // 5 recursions inclusive
+	double summe = 0;
+	for (arma::uword i = level; i < normalized_constants.n_elem; i++) summe += normalized_constants[i];
 	
-	return normalized_constants[level];
+	return summe;
 }
 
 arma::mat HMMtransitionMatrix::normalization_class::export_data()
 {
-	arma::mat result = arma::join_rows(arma::conv_to<arma::vec>::from(weight_ref_columns), collection);
-	result = result(arma::span(0,collected-1), arma::span::all);
-	return result;
+	return collection(arma::span(0,arma::max(collect_count)-1), arma::span::all);
 }
 
 
@@ -520,3 +489,5 @@ arma::mat HMMtransitionMatrix::export_constant_data()
 {
 	return NormConstantsWrapper.export_data();
 }
+
+

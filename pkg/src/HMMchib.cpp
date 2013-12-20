@@ -49,7 +49,6 @@ void HMMchib::save_transition_counts(HMMsequenceProducer& generator)
 }
 
 
-
 /*
  * 
  * name: calculate_marginal_likelihood

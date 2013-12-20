@@ -45,6 +45,8 @@ public:
     arma::urowvec get_genotype(arma::uword ref);
     void get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowvec genotype);
     
+    double get_log_multinomial_coefficient();
+    
     double calculate_likelihood(const arma::vec& probabilities);
     double naive_marginal_likelihood(double prior = 0.5);
 };
