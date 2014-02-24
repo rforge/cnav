@@ -30,36 +30,32 @@
 
 class Gibbs_Sampling
 {
+	
+	HMMtransitionMatrix TransitionInstance;
 	HMMsequenceProducer SequencerInstance;
 	HMMchib chib_ML_estimation;
 	bool samplingOrderImproved;	
 	
-	arma::mat constants_merker;
-	arma::umat exchange_saver;
+	arma::mat jumping_probs_statistics;
 	
 	public:
 	
 	Gibbs_Sampling(const HMMdataSet& observed_data,	const arma::vec& init_lambda, 
 	const arma::umat& init_transition_graph, const arma::umat& init_emission_matrix,
-	double amount, arma::uword preparation, arma::uword max_sequence_length,  
-	arma::uword how_many_sequence_tries = 30000, bool exact = false, bool collect = false, bool improvedSampling = true,
+	arma::uword max_sequence_length,  
+	arma::uword how_many_sequence_tries = 50, 
+	arma::uword path_sampling_repetitions = 1,
+	arma::uword internal_sampling = 1,
+	arma::uword n_swappings = 1, 
+	bool use_collapsed_sampler = false,
 	arma::uword rand_seed = 42);
 	
-	arma::mat run(arma::uword burnin, arma::uword mc);
+	arma::cube run(arma::uword burnin, arma::uword mc);
 	
-	arma::vec get_temperature_probabilities();
-	arma::vec get_kullback_divergence();
+	arma::mat get_temperature_likelihoods();
 	
 	arma::rowvec get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample);
 	
-	arma::vec get_constants();
-	
 	double get_naive_marginal_likelihood();
 	
-	arma::mat get_constants_trace() { return constants_merker; }
-	
-	arma::mat get_normalizer_data();
-	
-	arma::umat get_exchanger();
-
 };

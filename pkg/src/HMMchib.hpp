@@ -41,13 +41,15 @@ class HMMchib
     typedef boost::container::vector<arma::mat> transition_counts_vector_type;  
     transition_counts_vector_type transition_counts_vector;
     
+    double transitionDensity(const arma::mat& transition_probs, const arma::mat& transition_counts, double prior = 0.5);
+    
     arma::vec simulate_frequencies(HMMsequenceProducer& generator, const arma::mat& transition_matrix) ;
         
     public:
 	
 	HMMchib(arma::uword randseed);
 	
-	void save_transition_counts(HMMsequenceProducer& generator);
+	void save_transition_counts(HMMtransitionMatrix& matrix_instance);
 		
 	arma::rowvec calculate_marginal_likelihood(HMMsequenceProducer& generator, const arma::mat& transition_matrix);
 };

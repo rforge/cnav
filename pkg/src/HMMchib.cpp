@@ -38,16 +38,49 @@ HMMchib::HMMchib(arma::uword randseed) : common_rgen(randseed) {}
  * @param: generator ... just to get the counting matrix
  * @return: nothing
  */
-void HMMchib::save_transition_counts(HMMsequenceProducer& generator)
+void HMMchib::save_transition_counts(HMMtransitionMatrix& matrix_instance)
 {
 	using namespace arma;
 	
-	umat original = generator.get_transition_instance().get_transition_counts();
-	mat pb = arma::conv_to<mat>::from(original);
+	uword i = 0;
+	while (matrix_instance.get_current_particle_temperatures()[i] != 0) ++i;
+	mat pb = arma::conv_to<mat>::from(matrix_instance.get_transition_counts(i));
 	
 	transition_counts_vector.push_back(pb);
 }
 
+
+/*
+ * 
+ * name: transitionDensity
+ * @param: transition_probs - transition probabilities
+ * @param: transition_counts - transition counts = Dirichlet parameters
+ * @param: prior - Dirichlet prior
+ * @return: the density - product of a Dirichlet distribution for each state
+ * 
+ */
+double HMMchib::transitionDensity(const arma::mat& transition_probs, const arma::mat& transition_counts, double prior)
+{
+	using namespace arma;
+	double result = 0.0;
+	
+	for (uword zeile = 0; zeile < transition_counts.n_rows-1; zeile++) 
+	{
+		double zeilensumme = 0.0;
+		
+		for (uword spalte = 0; spalte < transition_counts.n_cols; spalte++)
+			if (transition_probs(zeile,spalte) > 0.0)
+		{
+			zeilensumme += transition_counts(zeile,spalte) + prior;
+			result += log(transition_probs(zeile,spalte)) * (transition_counts(zeile,spalte) + prior - 1.0) 
+			        - boost::math::lgamma( transition_counts(zeile,spalte) + prior );
+		}
+		result += boost::math::lgamma(zeilensumme);
+	}
+	
+	return result;
+}	
+	
 
 /*
  * 
@@ -71,7 +104,8 @@ arma::rowvec  HMMchib::calculate_marginal_likelihood(HMMsequenceProducer& genera
 	
 	transition_counts_vector_type::const_iterator viter = transition_counts_vector.begin();
 	vec::iterator tditer = transitionDensities.begin();
-	for (; viter != transition_counts_vector.end(); tditer++, viter++) *tditer = generator.get_transition_instance().transition_matrix_density(transition_matrix, *viter);
+	for (; viter != transition_counts_vector.end(); tditer++, viter++) 
+		*tditer = transitionDensity(transition_matrix, *viter, generator.get_transition_instance().get_prior());
 
     // sum up log values	
 	double maxval = transitionDensities.max();
@@ -79,19 +113,9 @@ arma::rowvec  HMMchib::calculate_marginal_likelihood(HMMsequenceProducer& genera
 	
 	// 3.: calculate prior density
 	double priordensity = 
-	  generator.get_transition_instance().transition_matrix_density(transition_matrix, zeros<mat>(transition_matrix.n_rows, transition_matrix.n_cols));
+	  transitionDensity(transition_matrix, zeros<mat>(transition_matrix.n_rows, transition_matrix.n_cols), generator.get_transition_instance().get_prior());
 	
-	//~ transition_matrix.print("TM=");
-	
-	
-	// 4.: with all components, calculate the Chib marginal likelihood
-	//~ Rcpp::Rcout << "\nComponents: " <<
-	//~ " log_likelihood = " << log_likelihood << "\t" <<
-	//~ " priordensity = " << priordensity << "\t" <<
-	//~ " posterior_density = " << posterior_density << "\n";
-	//~ Rcpp::Rcout << "Chib = " << log_likelihood + priordensity - posterior_density << "\n";
-	
-	
+		
 	rowvec result;
 	result << (log_likelihood + priordensity - posterior_density) << log_likelihood << priordensity << posterior_density;
 	

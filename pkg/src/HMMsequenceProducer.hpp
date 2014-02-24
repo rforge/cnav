@@ -56,6 +56,7 @@
 #include "BasicTypes.hpp"
 #include "HMMdataSet.hpp"
 #include "HMMtransitionMatrix.hpp"
+#include "HMMrandomtree.hpp"
 
 
 // This class is meant to separate the process of simulation sequences from
@@ -66,42 +67,57 @@ class HMMsequenceProducer
 {
     const arma::uword MAXIMUM_SEQUENCE_LENGTH;   // to limit the length of Markov sequences
     
-    HMMtransitionMatrix transitionData;
+    HMMtransitionMatrix& transitionData;
     
-	arma::umat transition_counts;				 // containes the realizations
-	arma::uword countDownCounter;				 // for the parallel process
+	//~ arma::umat transition_counts;				 // containes the realizations
+	//~ arma::uword countDownCounter;				 // for the parallel process
 	
     HMMdataSet observed_data;
     
-    double percentage;				 // number of sequences that is simulate randomly
+    //~ double percentage;				 // number of sequences that is simulate randomly
     //~ bool allow_collect;
     
     //~ typedef boost::container::flat_multimap<double, BasicTypes::SequenceReferenceTuple> multimap_type;
     //~ multimap_type realizations;  
     //~ 
-    arma::uvec genotype_realizations_count;
+    //~ arma::uvec genotype_realizations_count;
     // this set stores a lot of data of realizations ... for the approximation
 
     // Revision 12/2013 - current states of realizations
-    typedef boost::container::vector<BasicTypes::SequenceReferenceTuple> sequence_state_vector_type;  
-    sequence_state_vector_type current_sequence_states;
-    arma::uvec unchanged_states_vector;
-    arma::umat summarize_current_states();
-    void completely_random_move(boost::container::vector<BasicTypes::SequenceReferenceTuple>::iterator target, BasicTypes::base_generator_type& rand_gen);    
+    //~ typedef boost::container::vector<BasicTypes::SequenceReferenceTuple> sequence_state_vector_type;  
+    //~ sequence_state_vector_type current_sequence_states;
+    //~ arma::uvec unchanged_states_vector;
+    //~ arma::umat summarize_current_states();
+    //~ void completely_random_move(boost::container::vector<BasicTypes::SequenceReferenceTuple>::iterator target, BasicTypes::base_generator_type& rand_gen);    
+    //~ arma::uword exchanges_resimulation, exchanges_treesearch;    
     
-    arma::uword exchanges_resimulation, exchanges_treesearch;    
+    
+    // Revision 1/2014 - realizations are encapsulated
+    typedef boost::container::flat_multimap<arma::uword, HMMrandomtree> sequence_state_vector_type;
+    sequence_state_vector_type current_sequence_states;
+    sequence_state_vector_type::iterator update_iterator;
+    arma::uword missing_states;
+        
+    void produce_realizations();
     
     // A random generator for the main thread
     BasicTypes::base_generator_type common_rgen;
 
 	// Methods that parallely generate Markov sequences
 	boost::scoped_array<boost::thread> producers;	
-	boost::mutex simulationMutex, realization_protection_mutex, countDownMutex;	
-	boost::condition_variable_any countDownCondition;
-	bool finishedThread, finishedProduction;
+	//~ boost::mutex simulationMutex, realization_protection_mutex, 
+	boost::mutex updateMutex;
+	boost::mutex silencingAcceptanceMutex;
+	boost::condition_variable_any updateCondition;
+	bool finishedThread; //, finishedProduction;
+	
 	unsigned n_threads;
-	arma::uword fraction;
-	arma::mat common_transition_matrix;
+	
+	arma::uword n_internal_samplings;
+	arma::uword n_internal_countdown;
+	bool update_thread_alive;
+	//~ arma::uword fraction;
+	//~ arma::mat common_transition_matrix;
 	const arma::uword MAXCOUNT_TRIALS_FOR_SEQUENCES;
   
 	// Functions to calculate likelihood values with log mathematics
@@ -114,11 +130,11 @@ class HMMsequenceProducer
     //~ void add_approximation(arma::uword ref, arma::uword counts);
         
     // *** recursively and randomly searches a solution for a genotype. Started by construct_genotype
-    BasicTypes::SequenceReferenceTuple recursive_search_genotype(const arma::urowvec& target_genotype, 
-				arma::uword depth, arma::uword state, bool ran_twice, 
-				arma::urowvec& simGenotype, arma::urowvec& simSequence,
-				arma::umat& transition_counter, 
-				bool& finished, BasicTypes::base_generator_type& rgen);
+    //~ BasicTypes::SequenceReferenceTuple recursive_search_genotype(const arma::urowvec& target_genotype, 
+				//~ arma::uword depth, arma::uword state, bool ran_twice, 
+				//~ arma::urowvec& simGenotype, arma::urowvec& simSequence,
+				//~ arma::umat& transition_counter, 
+				//~ bool& finished, BasicTypes::base_generator_type& rgen);
 				
 	//~ // *** generates a number of solutions			
 	//~ void construct_genotype(arma::uword refGenotype, arma::uword how_many, BasicTypes::base_generator_type& rgen);
@@ -141,13 +157,13 @@ class HMMsequenceProducer
     // sequences is monitored
     
     // *** central post office for threads
-    void count_down_realizations(const BasicTypes::SequenceReferenceTuple& ref, BasicTypes::base_generator_type& rgen);
+    //~ void count_down_realizations(const BasicTypes::SequenceReferenceTuple& ref, BasicTypes::base_generator_type& rgen);
     
     // *** post office full check
-    bool count_down_finished();
+    //~ bool count_down_finished();
     
     // *** central function for each thread
-    void produce_realizations(arma::uword rseed);  
+    //~ void produce_realizations(arma::uword rseed);  
         
     //*** interrupt services to allow Ctrl-C
     void watch_ctrlc() { io_service.run(); }
@@ -159,15 +175,19 @@ class HMMsequenceProducer
         
   
 public:
-	HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix initTransitions, arma::uword rseed, bool exact, bool collect,
-	                    double i_percentage = 0.1, unsigned preparation = 100, unsigned max_sequence_length = 1000, arma::uword max_simulation_repetitions=30000);
-	
+    HMMsequenceProducer(HMMdataSet observed, HMMtransitionMatrix& initTransitions, 
+                                              arma::uword rseed = 42, unsigned max_sequence_length = 1000, 
+                                              arma::uword max_simulation_repetitions = 50,
+                                              arma::uword internal_sampling = 1,
+                                              arma::uword path_sampling_repetitions = 1, 
+                                              bool use_collapsed_sampler = false);
 	~HMMsequenceProducer();  // destructor
 		
 	// Function to simulate a sequence based upon a given transition matrix
     BasicTypes::SequenceReferenceTuple produce_random_sequence(const arma::mat& transition_matrix, BasicTypes::base_generator_type& rand_gen);
     		
-	void simulate_transition_counts(arma::uword& exch_resamp, arma::uword& exch_tree);
+	//~ void simulate_transition_counts(arma::uword& exch_resamp, arma::uword& exch_tree);
+	void simulate_transition_counts();
 	// returns the fraction of data that needed to be approximated
 	
 	void print_realizations_count();

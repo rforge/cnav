@@ -86,7 +86,7 @@ HMMdataSet::HMMdataSet(arma::umat init_genotypes)
 	
 	// and the corresponding individuals are sorted for speed purposes
 	genotype_refs = sort(genotype_refs);
-		
+	
 }
 		
 arma::uword HMMdataSet::get_ref_count()
@@ -159,13 +159,21 @@ double HMMdataSet::get_log_multinomial_coefficient()
 double HMMdataSet::calculate_likelihood(const arma::vec& probabilities)
 {
 	using namespace arma;
-	vec alpha = zeros<vec>(get_ref_count());
+	
+	vec alpha;
+	vec probs; 
+	
+	alpha = zeros<vec>(get_ref_count()+1); 
+	
+	vec addendum(1); addendum[0] = 1.0 - accu(probabilities);
+	probs = join_cols(probabilities, addendum);
+		
 	uvec::const_iterator ref_iter = genotype_refs.begin();	
 	
 	double likelihood_result = 0;
 	for (;ref_iter != genotype_refs.end(); ref_iter++) 
 	{
-		likelihood_result += log(probabilities[*ref_iter]);
+		likelihood_result += log(probs[*ref_iter]);
 		alpha[*ref_iter] += 1.0;
 	}
 	
@@ -180,30 +188,41 @@ double HMMdataSet::naive_marginal_likelihood(double prior)
 	using namespace arma;
 	
 	// initialize 
-	double result = 0;
-	vec alpha = zeros<vec>(get_ref_count());
+	vec alpha = zeros<vec>(get_ref_count()+1) + 0.5;
 	
 	// count number of genotypes in each slot of alpha
 	uvec::const_iterator ref_iter = genotype_refs.begin();	
-	for (;ref_iter != genotype_refs.end(); ref_iter++) alpha[*ref_iter] += 1.0;
+	for (;ref_iter != genotype_refs.end(); ++ref_iter) {
+		alpha[*ref_iter] += 1.0;
+	}
 	
-	// calculate exact marginal likelihood
-	double summe = 0.0;
-	vec::const_iterator iter = alpha.begin();
+	// double summe = 0.0;
+	// summe -= boost::math::lgamma(accu(alpha));   // (x1+x2+x3+...)! = n!
+	// for (vec::const_iterator iter = alpha.begin(); iter != alpha.end(); ++iter) summe += boost::math::lgamma(*iter); 
 	
-	// first: add likelihood function 
-	summe += boost::math::lgamma(accu(alpha) + 1);   // (x1+x2+x3+...)! = n!
-	for (; iter != alpha.end(); iter++) summe -= boost::math::lgamma(*iter + 1);  // x_j!
+	// * some controls
 	
-	// then: add prior
-	summe += boost::math::lgamma(0.5 * double(alpha.n_elem));
-	summe -= double(alpha.n_elem) * boost::math::lgamma(0.5);
 	
-	// at last: substract posterior
-	summe -= boost::math::lgamma(accu(alpha + 0.5));   // (x1+x2+x3+...)! = n!
-	for (; iter != alpha.end(); iter++) summe += boost::math::lgamma(*iter + 0.5); 
+	// Rcpp::Rcout << "\nNaive Marginal likelihood method 1 = " << summe << "\n";
 	
-	return result;
+	vec freq = alpha / accu(alpha);
+    double  m2_likelihood = calculate_likelihood( freq.subvec(0, freq.n_elem-2) );
+    double m2posterior = boost::math::lgamma(accu(alpha));
+    double m2prior = boost::math::lgamma(0.5 * double(alpha.n_elem));
+    
+    vec::const_iterator fiter = freq.begin();
+	for (vec::const_iterator iter = alpha.begin(); iter != alpha.end(); ++iter, ++fiter) 
+	{
+		m2posterior += log(*fiter) * (*iter - 1.0) - boost::math::lgamma(*iter); 
+		m2prior     += log(*fiter) * (0.5 - 1.0) - boost::math::lgamma(0.5);
+	}
+	
+	// Rcpp::Rcout << "Method 2 naive marginal likelihood = f(theta) " << m2_likelihood << " + pri(theta) " << m2prior << " - post(theta) " << 
+	//     m2posterior << " = " << m2_likelihood + m2prior - m2posterior << "\n"; 
+	// **
+	
+	
+	return m2_likelihood + m2prior - m2posterior;
 }
 
 
