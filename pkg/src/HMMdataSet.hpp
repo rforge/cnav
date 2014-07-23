@@ -21,9 +21,9 @@
  * 
  */
  
-#include "BasicTypes.hpp"
-
 #pragma once
+
+#include "BasicTypes.hpp"
 #include <iostream>
 
 #include <boost/random/mersenne_twister.hpp>
@@ -35,18 +35,32 @@ class HMMdataSet {
 	arma::umat genotype_list;                    // stores the unique observed genotypes - a sorted list!!!
     arma::uvec genotype_refs;					 // stores the genotype refs to the genotype_list
     
+    arma::urowvec genotype_col_maximum;
+    
+    
+    
 public:
     HMMdataSet(arma::umat init_genotypes);
     
     arma::uword get_ref_count();
     const arma::uword n_individuals() const;
+    const arma::uword n_genotypes() const;
     
     const arma::uvec& get_genotype_refs() const;
     arma::urowvec get_genotype(arma::uword ref);
-    void get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowvec genotype);
+    
+    void get_ref(BasicTypes::IDRefSequenceCountTuple& tuple, arma::urowvec genotype);
+
     
     double get_log_multinomial_coefficient();
     
     double calculate_likelihood(const arma::vec& probabilities);
     double naive_marginal_likelihood(double prior = 0.5);
+    
+    const arma::urowvec& get_genotype_maximum() const;
+    
+    const arma::umat get_genotype_list() const;
+    
+    double calculate_transition_matrix_likelihood(const arma::vec& transitions);
+    
 };

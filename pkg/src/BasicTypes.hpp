@@ -40,5 +40,7 @@ namespace BasicTypes {
 	
 	// Tuple: sequence, reference to genotype list, transition counts, validity
    	typedef boost::tuple<arma::urowvec, arma::uword, arma::umat, bool> SequenceReferenceTuple;
+   	
+   	typedef boost::tuple<arma::uword, arma::uword, arma::urowvec, arma::umat, bool> IDRefSequenceCountTuple;
 };
 	

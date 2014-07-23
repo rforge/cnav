@@ -8,7 +8,7 @@ Description: A hidden Markov model approach is used to infer frequencies and
   haplotype phases of genotypes containing joint allelic and copy-number 
   variation to be used in association studies.
 Suggests: MCMCpack
-Depends: Rcpp, RcppArmadillo
-SystemRequirements: Boost (>= 1.53)
+LinkingTo: Rcpp, RcppArmadillo, BH
+Depends: Rcpp (>= 0.9.10)
 License: GPL-2
  

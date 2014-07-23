@@ -22,37 +22,55 @@
 #pragma once
 #include <iostream>
 
+#include <boost/container/vector.hpp>
+#include <boost/scoped_array.hpp> 
+#include <boost/range/algorithm.hpp>
+
 #include "BasicTypes.hpp"
 #include "HMMdataSet.hpp"
-#include "HMMsequenceProducer.hpp"
-#include "HMMtransitionMatrix.hpp"
+#include "HMMparticle.hpp"
+#include "HMMkernelwrapper.hpp"
 #include "HMMchib.hpp"
+
+//~ #include "HMMchib.hpp"
 
 class Gibbs_Sampling
 {
+	boost::container::vector<HMMparticle> sampling_particles;	
+	arma::uword parameter_count;
+	arma::vec lambda_levels;
 	
-	HMMtransitionMatrix TransitionInstance;
-	HMMsequenceProducer SequencerInstance;
+	arma::mat level_likelihood_trace;
+	arma::umat temperature_trace;
+	arma::cube hash_trace;
+	arma::cube sequences_likelihood_trace;
+	
+	arma::uword gibbs_sequence_tries;
+	arma::uword saved_rand_seed;
+	arma::uword n_swapping_tries;
+	arma::uword multiple_tries;
+	
 	HMMchib chib_ML_estimation;
-	bool samplingOrderImproved;	
-	
-	arma::mat jumping_probs_statistics;
 	
 	public:
 	
-	Gibbs_Sampling(const HMMdataSet& observed_data,	const arma::vec& init_lambda, 
-	const arma::umat& init_transition_graph, const arma::umat& init_emission_matrix,
-	arma::uword max_sequence_length,  
-	arma::uword how_many_sequence_tries = 50, 
-	arma::uword path_sampling_repetitions = 1,
-	arma::uword internal_sampling = 1,
-	arma::uword n_swappings = 1, 
-	bool use_collapsed_sampler = false,
-	arma::uword rand_seed = 42);
+	Gibbs_Sampling(
+	    HMMdataSet& observed_data,	
+	    const arma::vec& init_lambda, 
+		const arma::mat& transition_matrix_prior, 
+		const arma::umat& init_emission_matrix,
+		arma::uword max_sequence_length = 1000,  
+		arma::uword how_many_sequence_tries = 50, 
+		arma::uword internal_sampling = 1 ,
+		arma::uword n_swappings = 1,
+		arma::uword rand_seed = 42); 
 	
 	arma::cube run(arma::uword burnin, arma::uword mc);
 	
 	arma::mat get_temperature_likelihoods();
+	arma::imat get_temperature_trace();
+	arma::cube get_hash_trace();
+	arma::cube get_sequences_likelihood_trace();
 	
 	arma::rowvec get_Chib_marginal_likelihood(const arma::rowvec& transition_matrix_sample);
 	

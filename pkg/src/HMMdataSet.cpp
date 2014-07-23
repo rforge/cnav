@@ -84,10 +84,23 @@ HMMdataSet::HMMdataSet(arma::umat init_genotypes)
 	// now, the list is compressed
 	genotype_list = genotype_list(span(0, store_position-1), span::all);
 	
+	//~ genotype_list.print("Genotypes");
+	
 	// and the corresponding individuals are sorted for speed purposes
 	genotype_refs = sort(genotype_refs);
 	
+	// and for one of the samplers ...
+	genotype_col_maximum = arma::max(genotype_list);
+	
 }
+		
+
+    
+const arma::urowvec& HMMdataSet::get_genotype_maximum() const
+{
+	return genotype_col_maximum;
+}
+
 		
 arma::uword HMMdataSet::get_ref_count()
 {
@@ -99,7 +112,13 @@ arma::urowvec HMMdataSet::get_genotype(arma::uword ref)
 	return genotype_list(ref, arma::span::all);
 }
 
-void HMMdataSet::get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowvec genotype)
+const arma::uword HMMdataSet::n_genotypes() const
+{
+	return genotype_refs.n_elem;
+}
+
+
+void HMMdataSet::get_ref(BasicTypes::IDRefSequenceCountTuple& tuple, arma::urowvec genotype)
 {
 	using namespace arma;
 	
@@ -117,8 +136,11 @@ void HMMdataSet::get_ref(BasicTypes::SequenceReferenceTuple& tuple, arma::urowve
 		}
 		if (!found) index++;
 	}
-	
-	tuple.get<3>() = found;
+
+	//~ std::cout << "\nSearch: ";
+    //~ for (arma::uword ix = 0; ix < genotype.n_elem; ++ix) std::cout << genotype[ix] << " ";
+	//~ std::cout << " Found: " << index << "\n";std::cout.flush();
+	tuple.get<4>() = found;
 	if (found) tuple.get<1>() = index;
 }
 
@@ -237,4 +259,12 @@ const arma::uword HMMdataSet::n_individuals() const
 	return genotype_refs.n_elem;
 }
 	
+	
+const arma::umat HMMdataSet::get_genotype_list() const
+{
+	arma::umat result(genotype_refs.n_elem, genotype_list.n_cols);
+	for (arma::uword i=0; i < genotype_refs.n_elem; ++i) result(i,arma::span::all) = genotype_list(genotype_refs[i], arma::span::all);
+	return result;
+}
 
+//**************************************************************

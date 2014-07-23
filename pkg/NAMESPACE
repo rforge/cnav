@@ -1,12 +1,6 @@
 useDynLib(CNAV)
 
 export ( 
-generate_initial_parameters,
-  get_parameters,
-  duplicate_transition_matrix,
-  generate_transition_matrix,
-  transition_to_indexmatrix,
-  simulation,
   cnav.regression,
   cnav.simulation,
   cnav.unormdensity

@@ -1,7 +1,9 @@
 \name{cnav.simulation}
+\alias{cnav.simulation}
 \alias{print.cnav.simulation}
 \alias{summary.cnav.simulation}
 \alias{print.summary.cnav.simulation}
+\docType{package}
 \title{GENOME ANALYSIS OF JOINT COPY-NUMBER AND ALLELIC VARIATION BY BAYESIAN HIDDEN MARKOV MODEL INFERENCE}
 \description{Generate a set of genotypes given a Markov model with transition probabilities and emission matrix}
 \usage{

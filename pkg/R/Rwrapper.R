@@ -2,37 +2,15 @@
 # cnav.regression
 # This function wraps the actual C++ function for HMM inference
 
-# input parameters:
-# genotypes : an integer matrix containing individual genotypes in a row, i.e. counts of alleles for each gene
-# individuals : a factor with the individuals belonging to the rows in genotypes 
-# weights : a numeric vector the probability weight for each genotype (multiple pseudoindividuals with a probability summing up to 1.0)
-# transition_matrix : the indicator matrix for valid graph edges (numeric matrix)
-# emission_matrix : each row reflects the allele/gene counting events for a certain state of the HMM (integer matrix)
-# temperatures : a temperature set, always starting with 1.0 as the highest temperature and ending with 0.0 as the lowest one, numeric vector
-# percentage : a tuning parameter, how many genotypes should be approximated, double
-# preparation : another tuning parameter - how many sequences should be generated for approximation
-# max_unbiased_sequence_generation_repeats - the maximum number of trials to generate the genotypes unbiasedly
-# max_sequence_length: just a restriction - the maximum length of a Markov path
-# burnin : how many samples should be dropped beforehand, integer
-# mc : number of MC samples, integer
-# seed: a random number to make the MCMC (partly) reproducible, integer
- 
-# output:
-# temperature.indices : temperature level - for each MCMC sample
-# number.of.sequence.generation.repeats : number of resamples necessary to generate a preset amount of unbiased sequences - for each MCMC sample
-# amount.of.unbiasedly.simulated.sequences : amount of sequences which are unbiased - for each MCMC sample
-# mc.samples.transition.matrix : the random samples for the transition matrix, order is column-wise
-# mean.temperature.jumping.probabilities : the probability to jump from lower to higher temperature ... useful to determine temperature steps
-# kullback.leibler.divergences : the information amount taken up by the posterior distribution, compared to the prior distribution
-# 
-
 cnav.regression <- function(genotypes,
                             transition_matrix,
                             emission_matrix,
-                            temperatures,
+                            temperatures = 1,
 	                    burnin = 100,
                             mc = 1000,
-			    max_unbiased_sequence_generation_repeats = 50,
+			    incomplete_samplings = 1000,
+			    squirrel_kernel_parameter = 100,
+			    n_swappings = 0,
                             max_sequence_length = 1000,
                             seed = 42)
 {
@@ -56,7 +34,7 @@ cnav.regression <- function(genotypes,
   if (ncol(emission_matrix) != ncol(genotypes)) stop("Emission matrix does not match genotypes!\n")
 
   # check other settings
-  if (burnin < 0 || any(c(mc, max_sequence_length, seed, max_unbiased_sequence_generation_repeats) <= 0)) stop("Please correct control settings!\n");
+  if (n_swappings<0 ||burnin < 0 || any(c(mc, max_sequence_length, seed, incomplete_samplings, squirrel_kernel_parameter) <= 0)) stop("Please correct control settings!\n");
 
   # Everythings okay? ... then start
                         
@@ -65,11 +43,10 @@ cnav.regression <- function(genotypes,
               transition_matrix = transition_matrix,
               emission_matrix = emission_matrix,
               temperatures = as.double(temperatures),
-              r_how_many_sequence_tries = as.integer(max_unbiased_sequence_generation_repeats),
+              r_how_many_sequence_tries = as.integer(incomplete_samplings),
               r_maxsequence_length = as.integer(max_sequence_length),
-	      path_sampling_repetitions = 5L,
-	      internal_sampling = 1L, 
-	      n_swappings = 0L,
+	      internal_sampling = as.integer(squirrel_kernel_parameter), 
+	      n_swappings = as.integer(n_swappings),
 	      collapsed_sampling = FALSE, 
               burnin = as.integer(burnin),
               mc = as.integer(mc),

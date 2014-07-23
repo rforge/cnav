@@ -1,7 +1,9 @@
  \name{cnav.unormdensity}
+ \alias{cnav.unormdensity}
 \alias{print.cnav.unormdensity}
 \alias{summary.cnav.unormdensity}
 \alias{print.summary.cnav.unormdensity}
+\docType{package}
 \title{GENOME ANALYSIS OF JOINT COPY-NUMBER AND ALLELIC VARIATION BY BAYESIAN HIDDEN MARKOV MODEL INFERENCE}
 \description{Determines the unnormalized density for a transition probability matrix, given the individuals, genotypes and weights.}
 \usage{
